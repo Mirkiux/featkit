@@ -38,20 +38,30 @@ class TestConcreteOutputContracts:
                 NumericOutputContract,
                 Layer2OutputType.NUMERIC,
                 {
-                    TemporalOperator.PROM_U, TemporalOperator.PROM_P,
-                    TemporalOperator.SUM_U, TemporalOperator.SUM_P,
-                    TemporalOperator.CREC, TemporalOperator.MIN_U, TemporalOperator.MAX_U,
-                    TemporalOperator.ULT_MES, TemporalOperator.PREV_MES,
-                    TemporalOperator.FREQ, TemporalOperator.XM,
-                    TemporalOperator.MEDIA_ABS, TemporalOperator.RATIO,
+                    TemporalOperator.PROM_U,
+                    TemporalOperator.PROM_P,
+                    TemporalOperator.SUM_U,
+                    TemporalOperator.SUM_P,
+                    TemporalOperator.CREC,
+                    TemporalOperator.MIN_U,
+                    TemporalOperator.MAX_U,
+                    TemporalOperator.ULT_MES,
+                    TemporalOperator.PREV_MES,
+                    TemporalOperator.FREQ,
+                    TemporalOperator.XM,
+                    TemporalOperator.MEDIA_ABS,
+                    TemporalOperator.RATIO,
                 },
             ),
             (
                 FlagOutputContract,
                 Layer2OutputType.FLAG,
                 {
-                    TemporalOperator.ULT_MES, TemporalOperator.PREV_MES,
-                    TemporalOperator.FREQ, TemporalOperator.XM, TemporalOperator.REC,
+                    TemporalOperator.ULT_MES,
+                    TemporalOperator.PREV_MES,
+                    TemporalOperator.FREQ,
+                    TemporalOperator.XM,
+                    TemporalOperator.REC,
                 },
             ),
             (
@@ -63,8 +73,11 @@ class TestConcreteOutputContracts:
                 TemporalOutputContract,
                 Layer2OutputType.TEMPORAL,
                 {
-                    TemporalOperator.ULT_MES, TemporalOperator.PREV_MES,
-                    TemporalOperator.REC, TemporalOperator.MIN_U, TemporalOperator.MAX_U,
+                    TemporalOperator.ULT_MES,
+                    TemporalOperator.PREV_MES,
+                    TemporalOperator.REC,
+                    TemporalOperator.MIN_U,
+                    TemporalOperator.MAX_U,
                     TemporalOperator.CREC,
                 },
             ),
@@ -76,11 +89,21 @@ class TestConcreteOutputContracts:
         assert contract.valid_temporal_operators == frozenset(expected_ops)
 
     def test_returns_frozenset(self) -> None:
-        for cls in [NumericOutputContract, FlagOutputContract, CategoricalOutputContract, TemporalOutputContract]:
+        for cls in [
+            NumericOutputContract,
+            FlagOutputContract,
+            CategoricalOutputContract,
+            TemporalOutputContract,
+        ]:
             assert isinstance(cls().valid_temporal_operators, frozenset)
 
     def test_frozenset_is_non_empty(self) -> None:
-        for cls in [NumericOutputContract, FlagOutputContract, CategoricalOutputContract, TemporalOutputContract]:
+        for cls in [
+            NumericOutputContract,
+            FlagOutputContract,
+            CategoricalOutputContract,
+            TemporalOutputContract,
+        ]:
             assert len(cls().valid_temporal_operators) > 0
 
 
@@ -92,10 +115,16 @@ class TestGetDefaultOutputContract:
             assert contract.output_type == ot
 
     def test_returns_correct_contract_class(self) -> None:
-        assert isinstance(get_default_output_contract(Layer2OutputType.NUMERIC), NumericOutputContract)
+        assert isinstance(
+            get_default_output_contract(Layer2OutputType.NUMERIC), NumericOutputContract
+        )
         assert isinstance(get_default_output_contract(Layer2OutputType.FLAG), FlagOutputContract)
-        assert isinstance(get_default_output_contract(Layer2OutputType.CATEGORICAL), CategoricalOutputContract)
-        assert isinstance(get_default_output_contract(Layer2OutputType.TEMPORAL), TemporalOutputContract)
+        assert isinstance(
+            get_default_output_contract(Layer2OutputType.CATEGORICAL), CategoricalOutputContract
+        )
+        assert isinstance(
+            get_default_output_contract(Layer2OutputType.TEMPORAL), TemporalOutputContract
+        )
 
     def test_flag_excludes_sum_and_average_operators(self) -> None:
         contract = get_default_output_contract(Layer2OutputType.FLAG)
@@ -109,5 +138,8 @@ class TestGetDefaultOutputContract:
         assert TemporalOperator.CREC not in contract.valid_temporal_operators
 
     def test_numeric_has_most_operators(self) -> None:
-        counts = {ot: len(get_default_output_contract(ot).valid_temporal_operators) for ot in Layer2OutputType}
+        counts = {
+            ot: len(get_default_output_contract(ot).valid_temporal_operators)
+            for ot in Layer2OutputType
+        }
         assert counts[Layer2OutputType.NUMERIC] == max(counts.values())
