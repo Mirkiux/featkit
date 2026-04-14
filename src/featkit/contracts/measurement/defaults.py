@@ -13,75 +13,91 @@ _AV = Layer2Aggregator.AVG
 
 
 class MontoContract(AbstractMeasurementTypeContract):
+    _AGGREGATORS: frozenset[Layer2Aggregator] = frozenset({_S, _MX, _MN, _AV})
+
     def __init__(self) -> None:
         super().__init__(MeasurementType.MONTO)
 
     @property
     def valid_layer2_aggregators(self) -> frozenset[Layer2Aggregator]:
-        return frozenset({_S, _MX, _MN, _AV})
+        return self._AGGREGATORS
 
 
 class CantidadContract(AbstractMeasurementTypeContract):
+    _AGGREGATORS: frozenset[Layer2Aggregator] = frozenset({_S})
+
     def __init__(self) -> None:
         super().__init__(MeasurementType.CANTIDAD)
 
     @property
     def valid_layer2_aggregators(self) -> frozenset[Layer2Aggregator]:
-        return frozenset({_S, _C})
+        return self._AGGREGATORS
 
 
 class TicketContract(AbstractMeasurementTypeContract):
+    _AGGREGATORS: frozenset[Layer2Aggregator] = frozenset({_AV})
+
     def __init__(self) -> None:
         super().__init__(MeasurementType.TICKET)
 
     @property
     def valid_layer2_aggregators(self) -> frozenset[Layer2Aggregator]:
-        return frozenset({_AV})
+        return self._AGGREGATORS
 
 
 class FlagContract(AbstractMeasurementTypeContract):
+    _AGGREGATORS: frozenset[Layer2Aggregator] = frozenset({_MX})
+
     def __init__(self) -> None:
         super().__init__(MeasurementType.FLAG)
 
     @property
     def valid_layer2_aggregators(self) -> frozenset[Layer2Aggregator]:
-        return frozenset({_MX})
+        return self._AGGREGATORS
 
 
 class FechaContract(AbstractMeasurementTypeContract):
+    _AGGREGATORS: frozenset[Layer2Aggregator] = frozenset({_MX, _MN})
+
     def __init__(self) -> None:
         super().__init__(MeasurementType.FECHA)
 
     @property
     def valid_layer2_aggregators(self) -> frozenset[Layer2Aggregator]:
-        return frozenset({_MX, _MN})
+        return self._AGGREGATORS
 
 
 class BalanceContract(AbstractMeasurementTypeContract):
+    _AGGREGATORS: frozenset[Layer2Aggregator] = frozenset({_MX, _MN, _AV})
+
     def __init__(self) -> None:
         super().__init__(MeasurementType.BALANCE)
 
     @property
     def valid_layer2_aggregators(self) -> frozenset[Layer2Aggregator]:
-        return frozenset({_MX, _MN, _AV})
+        return self._AGGREGATORS
 
 
 class TimeDiffContract(AbstractMeasurementTypeContract):
+    _AGGREGATORS: frozenset[Layer2Aggregator] = frozenset({_S, _AV, _MX, _MN})
+
     def __init__(self) -> None:
         super().__init__(MeasurementType.TIME_DIFF)
 
     @property
     def valid_layer2_aggregators(self) -> frozenset[Layer2Aggregator]:
-        return frozenset({_S, _AV, _MX, _MN})
+        return self._AGGREGATORS
 
 
 class EstadisticoContract(AbstractMeasurementTypeContract):
+    _AGGREGATORS: frozenset[Layer2Aggregator] = frozenset({_S, _AV, _MX, _MN, _C})
+
     def __init__(self) -> None:
         super().__init__(MeasurementType.ESTADISTICO)
 
     @property
     def valid_layer2_aggregators(self) -> frozenset[Layer2Aggregator]:
-        return frozenset({_S, _AV, _MX, _MN, _C})
+        return self._AGGREGATORS
 
 
 _DEFAULTS: dict[MeasurementType, AbstractMeasurementTypeContract] = {

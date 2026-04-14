@@ -15,7 +15,12 @@ class AbstractMeasurementTypeContract(ABC):
     """
 
     def __init__(self, measurement_type: MeasurementType) -> None:
-        self.measurement_type = measurement_type
+        self._measurement_type = measurement_type
+
+    @property
+    def measurement_type(self) -> MeasurementType:
+        """The MeasurementType this contract governs (read-only)."""
+        return self._measurement_type
 
     @property
     @abstractmethod

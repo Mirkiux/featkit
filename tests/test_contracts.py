@@ -51,7 +51,7 @@ class TestConcreteContracts:
             (
                 CantidadContract,
                 MeasurementType.CANTIDAD,
-                {Layer2Aggregator.SUM, Layer2Aggregator.COUNT},
+                {Layer2Aggregator.SUM},
             ),
             (
                 TicketContract,
