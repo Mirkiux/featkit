@@ -89,27 +89,29 @@ class TestConcreteOutputContracts:
         ot: Layer2OutputType,
         expected_ops: set[TemporalOperator],
     ) -> None:
-        contract = contract_cls()
+        contract = contract_cls()  # type: ignore[call-arg]
         assert contract.output_type == ot
         assert contract.valid_temporal_operators == frozenset(expected_ops)
 
     def test_returns_frozenset(self) -> None:
-        for cls in [
-            NumericOutputContract,
-            FlagOutputContract,
-            CategoricalOutputContract,
-            TemporalOutputContract,
-        ]:
-            assert isinstance(cls().valid_temporal_operators, frozenset)
+        instances: list[AbstractLayer2OutputContract] = [
+            NumericOutputContract(),
+            FlagOutputContract(),
+            CategoricalOutputContract(),
+            TemporalOutputContract(),
+        ]
+        for contract in instances:
+            assert isinstance(contract.valid_temporal_operators, frozenset)
 
     def test_frozenset_is_non_empty(self) -> None:
-        for cls in [
-            NumericOutputContract,
-            FlagOutputContract,
-            CategoricalOutputContract,
-            TemporalOutputContract,
-        ]:
-            assert len(cls().valid_temporal_operators) > 0
+        instances: list[AbstractLayer2OutputContract] = [
+            NumericOutputContract(),
+            FlagOutputContract(),
+            CategoricalOutputContract(),
+            TemporalOutputContract(),
+        ]
+        for contract in instances:
+            assert len(contract.valid_temporal_operators) > 0
 
 
 class TestGetDefaultOutputContract:

@@ -15,7 +15,12 @@ class AbstractLayer2OutputContract(ABC):
     """
 
     def __init__(self, output_type: Layer2OutputType) -> None:
-        self.output_type = output_type
+        self._output_type = output_type
+
+    @property
+    def output_type(self) -> Layer2OutputType:
+        """The Layer2OutputType this contract governs (read-only)."""
+        return self._output_type
 
     @property
     @abstractmethod

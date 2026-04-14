@@ -22,39 +22,49 @@ _RA = TemporalOperator.RATIO
 
 
 class NumericOutputContract(AbstractLayer2OutputContract):
+    _OPERATORS: frozenset[TemporalOperator] = frozenset(
+        {_PU, _PP, _SU, _SP, _CR, _MNU, _MXU, _UM, _PM, _FR, _XM, _MA, _RA}
+    )
+
     def __init__(self) -> None:
         super().__init__(Layer2OutputType.NUMERIC)
 
     @property
     def valid_temporal_operators(self) -> frozenset[TemporalOperator]:
-        return frozenset({_PU, _PP, _SU, _SP, _CR, _MNU, _MXU, _UM, _PM, _FR, _XM, _MA, _RA})
+        return self._OPERATORS
 
 
 class FlagOutputContract(AbstractLayer2OutputContract):
+    _OPERATORS: frozenset[TemporalOperator] = frozenset({_UM, _PM, _FR, _XM, _RC})
+
     def __init__(self) -> None:
         super().__init__(Layer2OutputType.FLAG)
 
     @property
     def valid_temporal_operators(self) -> frozenset[TemporalOperator]:
-        return frozenset({_UM, _PM, _FR, _XM, _RC})
+        return self._OPERATORS
 
 
 class CategoricalOutputContract(AbstractLayer2OutputContract):
+    _OPERATORS: frozenset[TemporalOperator] = frozenset({_UM, _PM, _RC})
+
     def __init__(self) -> None:
         super().__init__(Layer2OutputType.CATEGORICAL)
 
     @property
     def valid_temporal_operators(self) -> frozenset[TemporalOperator]:
-        return frozenset({_UM, _PM, _RC})
+        return self._OPERATORS
 
 
 class TemporalOutputContract(AbstractLayer2OutputContract):
+    _OPERATORS: frozenset[TemporalOperator] = frozenset({_UM, _PM, _RC, _MNU, _MXU, _CR})
+
     def __init__(self) -> None:
         super().__init__(Layer2OutputType.TEMPORAL)
 
     @property
     def valid_temporal_operators(self) -> frozenset[TemporalOperator]:
-        return frozenset({_UM, _PM, _RC, _MNU, _MXU, _CR})
+        return self._OPERATORS
 
 
 _DEFAULTS: dict[Layer2OutputType, AbstractLayer2OutputContract] = {
