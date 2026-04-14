@@ -108,3 +108,46 @@ class TestTimeField:
         expected: bool,
     ) -> None:
         assert self._make(source=src, target=tgt).truncation_required is expected
+
+    def test_equal_when_all_components_match(self) -> None:
+        a = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
+        b = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
+        assert a == b
+
+    def test_not_equal_when_target_differs(self) -> None:
+        a = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
+        b = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.DAILY)
+        assert a != b
+
+    def test_not_equal_when_source_differs(self) -> None:
+        a = self._make(source=TimeGranularity.DAILY, target=TimeGranularity.MONTHLY)
+        b = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
+        assert a != b
+
+    def test_not_equal_when_name_differs(self) -> None:
+        a = TimeField("PERIODO", TimeGranularity.MONTHLY, TimeGranularity.MONTHLY)
+        b = TimeField("FECHA", TimeGranularity.MONTHLY, TimeGranularity.MONTHLY)
+        assert a != b
+
+    def test_hash_equal_fields_have_same_hash(self) -> None:
+        a = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
+        b = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
+        assert hash(a) == hash(b)
+
+    def test_hash_different_granularity_produces_different_hash(self) -> None:
+        a = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
+        b = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.DAILY)
+        assert hash(a) != hash(b)
+
+    def test_usable_as_dict_key(self) -> None:
+        a = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
+        b = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.DAILY)
+        d = {a: "monthly", b: "daily"}
+        assert d[a] == "monthly"
+        assert d[b] == "daily"
+
+    def test_set_deduplication_respects_granularity(self) -> None:
+        a = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
+        b = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.DAILY)
+        c = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
+        assert len({a, b, c}) == 2

@@ -32,6 +32,9 @@ class TimeField(AbstractField):
         """``True`` when source and target granularities differ."""
         return self.source_granularity != self.target_granularity
 
+    def _key(self) -> tuple[object, ...]:
+        return (self.name, self.source_granularity, self.target_granularity)
+
     def __repr__(self) -> str:
         return (
             f"TimeField(name={self.name!r}, "
