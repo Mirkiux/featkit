@@ -41,7 +41,12 @@ class TestConcreteContracts:
             (
                 MontoContract,
                 MeasurementType.MONTO,
-                {Layer2Aggregator.SUM, Layer2Aggregator.MAX, Layer2Aggregator.MIN, Layer2Aggregator.AVG},
+                {
+                    Layer2Aggregator.SUM,
+                    Layer2Aggregator.MAX,
+                    Layer2Aggregator.MIN,
+                    Layer2Aggregator.AVG,
+                },
             ),
             (
                 CantidadContract,
@@ -71,12 +76,23 @@ class TestConcreteContracts:
             (
                 TimeDiffContract,
                 MeasurementType.TIME_DIFF,
-                {Layer2Aggregator.SUM, Layer2Aggregator.AVG, Layer2Aggregator.MAX, Layer2Aggregator.MIN},
+                {
+                    Layer2Aggregator.SUM,
+                    Layer2Aggregator.AVG,
+                    Layer2Aggregator.MAX,
+                    Layer2Aggregator.MIN,
+                },
             ),
             (
                 EstadisticoContract,
                 MeasurementType.ESTADISTICO,
-                {Layer2Aggregator.SUM, Layer2Aggregator.AVG, Layer2Aggregator.MAX, Layer2Aggregator.MIN, Layer2Aggregator.COUNT},
+                {
+                    Layer2Aggregator.SUM,
+                    Layer2Aggregator.AVG,
+                    Layer2Aggregator.MAX,
+                    Layer2Aggregator.MIN,
+                    Layer2Aggregator.COUNT,
+                },
             ),
         ],
     )
@@ -87,15 +103,27 @@ class TestConcreteContracts:
 
     def test_returns_frozenset(self) -> None:
         for cls in [
-            MontoContract, CantidadContract, TicketContract, FlagContract,
-            FechaContract, BalanceContract, TimeDiffContract, EstadisticoContract,
+            MontoContract,
+            CantidadContract,
+            TicketContract,
+            FlagContract,
+            FechaContract,
+            BalanceContract,
+            TimeDiffContract,
+            EstadisticoContract,
         ]:
             assert isinstance(cls().valid_layer2_aggregators, frozenset)
 
     def test_frozenset_is_non_empty(self) -> None:
         for cls in [
-            MontoContract, CantidadContract, TicketContract, FlagContract,
-            FechaContract, BalanceContract, TimeDiffContract, EstadisticoContract,
+            MontoContract,
+            CantidadContract,
+            TicketContract,
+            FlagContract,
+            FechaContract,
+            BalanceContract,
+            TimeDiffContract,
+            EstadisticoContract,
         ]:
             assert len(cls().valid_layer2_aggregators) > 0
 
