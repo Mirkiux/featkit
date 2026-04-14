@@ -1,6 +1,5 @@
 """Tests for Plan 01 — all featkit enumerators."""
 
-
 from featkit.enums import (
     CategoricalTreatment,
     DistributionalMetric,
@@ -32,8 +31,14 @@ class TestFieldRole:
 class TestMeasurementType:
     def test_all_values_present(self) -> None:
         expected = {
-            "MONTO", "CANTIDAD", "TICKET", "FLAG",
-            "FECHA", "BALANCE", "TIME_DIFF", "ESTADISTICO",
+            "MONTO",
+            "CANTIDAD",
+            "TICKET",
+            "FLAG",
+            "FECHA",
+            "BALANCE",
+            "TIME_DIFF",
+            "ESTADISTICO",
         }
         assert {m.name for m in MeasurementType} == expected
 
@@ -99,9 +104,20 @@ class TestLayer2OutputType:
 class TestTemporalOperator:
     def test_all_values_present(self) -> None:
         expected = {
-            "PROM_U", "PROM_P", "SUM_U", "SUM_P",
-            "ULT_MES", "PREV_MES", "CREC", "FREQ",
-            "MIN_U", "MAX_U", "REC", "XM", "MEDIA_ABS", "RATIO",
+            "PROM_U",
+            "PROM_P",
+            "SUM_U",
+            "SUM_P",
+            "ULT_MES",
+            "PREV_MES",
+            "CREC",
+            "FREQ",
+            "MIN_U",
+            "MAX_U",
+            "REC",
+            "XM",
+            "MEDIA_ABS",
+            "RATIO",
         }
         assert {m.name for m in TemporalOperator} == expected
 
