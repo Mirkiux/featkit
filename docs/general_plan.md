@@ -249,7 +249,7 @@ Plans connected by `∥` can be implemented in parallel. Arrows indicate that al
   - `dataset: AbstractDataset`
   - `include_marginals: bool` — whether to include ∅ substitutions for each categorical
   - `aggregators_override: dict[MeasurementType, list[Layer2Aggregator]] | None`
-  - `domain_resolver: Callable[[CategoricalField], list[str]] | None` — invoked when `field.allowed_values is None`; typically wraps a `SELECT DISTINCT {col} FROM {table}` query via the dataset's data source adapter
+  - `domain_resolver: Callable[[CategoricalField], list[str]] | None` — invoked when `field.allowed_values is None`; a **user-supplied callable** that returns the distinct values for a categorical column. The framework performs no query execution and introduces no adapter or executor class — execution is entirely delegated to the caller (e.g. `lambda f: conn.execute(f"SELECT DISTINCT {f.name} FROM {dataset.source_reference}").fetchall()`)
   - `build() → list[PivotedColumn]`:
     1. For each pivot-eligible categorical: resolve domain via `field.allowed_values` (static) when set, otherwise via `domain_resolver(field)` (dynamic); raise `ValueError` if both are `None`
     2. Compute cartesian product of `(resolved_domain ∪ {None})` across all pivot-eligible categoricals
