@@ -1,6 +1,5 @@
 """Tests for Plan 01 — all featkit enumerators."""
 
-import pytest
 
 from featkit.enums import (
     CategoricalTreatment,
