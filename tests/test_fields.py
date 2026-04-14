@@ -1,9 +1,15 @@
-"""Tests for Plan 02 — AbstractField, IDField, TimeField."""
+"""Tests for Plans 02 and 03 — all field descriptors."""
 
 import pytest
 
-from featkit.enums import FieldRole, TimeGranularity
-from featkit.fields import AbstractField, IDField, TimeField
+from featkit.enums import (
+    CategoricalTreatment,
+    DistributionalMetric,
+    FieldRole,
+    MeasurementType,
+    TimeGranularity,
+)
+from featkit.fields import AbstractField, CategoricalField, IDField, MeasurementField, TimeField
 
 
 class TestAbstractField:
@@ -151,3 +157,139 @@ class TestTimeField:
         b = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.DAILY)
         c = self._make(source=TimeGranularity.MONTHLY, target=TimeGranularity.MONTHLY)
         assert len({a, b, c}) == 2
+
+
+class TestCategoricalField:
+    def test_role_is_categorical(self) -> None:
+        field = CategoricalField(name="SECTOR", treatment=CategoricalTreatment.PIVOT)
+        assert field.role == FieldRole.CATEGORICAL
+
+    def test_pivot_needs_no_metrics(self) -> None:
+        field = CategoricalField(name="SECTOR", treatment=CategoricalTreatment.PIVOT)
+        assert field.distributional_metrics == []
+
+    def test_distributional_raises_without_metrics(self) -> None:
+        with pytest.raises(ValueError, match="distributional_metrics"):
+            CategoricalField(name="SECTOR", treatment=CategoricalTreatment.DISTRIBUTIONAL)
+
+    def test_both_raises_without_metrics(self) -> None:
+        with pytest.raises(ValueError, match="distributional_metrics"):
+            CategoricalField(name="SECTOR", treatment=CategoricalTreatment.BOTH)
+
+    def test_distributional_stores_metrics(self) -> None:
+        metrics = [DistributionalMetric.ENTROPY, DistributionalMetric.HHI]
+        field = CategoricalField(
+            name="SECTOR",
+            treatment=CategoricalTreatment.DISTRIBUTIONAL,
+            distributional_metrics=metrics,
+        )
+        assert field.distributional_metrics == metrics
+
+    def test_allowed_values_default_none(self) -> None:
+        field = CategoricalField(name="SECTOR", treatment=CategoricalTreatment.PIVOT)
+        assert field.allowed_values is None
+
+    def test_allowed_values_stored(self) -> None:
+        vals = ["A", "B", "C"]
+        field = CategoricalField(
+            name="SECTOR", treatment=CategoricalTreatment.PIVOT, allowed_values=vals
+        )
+        assert field.allowed_values == vals
+
+    def test_equal_same_name_and_treatment(self) -> None:
+        a = CategoricalField(name="X", treatment=CategoricalTreatment.PIVOT)
+        b = CategoricalField(name="X", treatment=CategoricalTreatment.PIVOT)
+        assert a == b
+
+    def test_not_equal_different_treatment(self) -> None:
+        a = CategoricalField(name="X", treatment=CategoricalTreatment.PIVOT)
+        b = CategoricalField(
+            name="X",
+            treatment=CategoricalTreatment.DISTRIBUTIONAL,
+            distributional_metrics=[DistributionalMetric.ENTROPY],
+        )
+        assert a != b
+
+    def test_not_equal_different_name(self) -> None:
+        a = CategoricalField(name="A", treatment=CategoricalTreatment.PIVOT)
+        b = CategoricalField(name="B", treatment=CategoricalTreatment.PIVOT)
+        assert a != b
+
+    def test_not_equal_different_distributional_metrics(self) -> None:
+        a = CategoricalField(
+            name="X",
+            treatment=CategoricalTreatment.DISTRIBUTIONAL,
+            distributional_metrics=[DistributionalMetric.ENTROPY],
+        )
+        b = CategoricalField(
+            name="X",
+            treatment=CategoricalTreatment.DISTRIBUTIONAL,
+            distributional_metrics=[DistributionalMetric.HHI],
+        )
+        assert a != b
+
+    def test_not_equal_different_allowed_values(self) -> None:
+        a = CategoricalField(
+            name="X", treatment=CategoricalTreatment.PIVOT, allowed_values=["A", "B"]
+        )
+        b = CategoricalField(
+            name="X", treatment=CategoricalTreatment.PIVOT, allowed_values=["A", "C"]
+        )
+        assert a != b
+
+    def test_equal_metrics_order_independent(self) -> None:
+        a = CategoricalField(
+            name="X",
+            treatment=CategoricalTreatment.DISTRIBUTIONAL,
+            distributional_metrics=[DistributionalMetric.ENTROPY, DistributionalMetric.HHI],
+        )
+        b = CategoricalField(
+            name="X",
+            treatment=CategoricalTreatment.DISTRIBUTIONAL,
+            distributional_metrics=[DistributionalMetric.HHI, DistributionalMetric.ENTROPY],
+        )
+        assert a == b
+
+    def test_hashable_and_deduplicates_in_set(self) -> None:
+        a = CategoricalField(name="X", treatment=CategoricalTreatment.PIVOT)
+        b = CategoricalField(name="X", treatment=CategoricalTreatment.PIVOT)
+        assert len({a, b}) == 1
+
+
+class TestMeasurementField:
+    def test_role_is_measurement(self) -> None:
+        field = MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO)
+        assert field.role == FieldRole.MEASUREMENT
+
+    def test_measurement_type_stored(self) -> None:
+        field = MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO)
+        assert field.measurement_type == MeasurementType.MONTO
+
+    def test_contract_defaults_to_none(self) -> None:
+        field = MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO)
+        assert field.contract is None
+
+    def test_contract_stored_without_execution(self) -> None:
+        from unittest.mock import MagicMock
+
+        mock_contract = MagicMock()
+        field = MeasurementField(
+            name="MTO", measurement_type=MeasurementType.MONTO, contract=mock_contract
+        )
+        assert field.contract is mock_contract
+        mock_contract.assert_not_called()
+
+    def test_equal_same_name_and_type(self) -> None:
+        a = MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO)
+        b = MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO)
+        assert a == b
+
+    def test_not_equal_different_measurement_type(self) -> None:
+        a = MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO)
+        b = MeasurementField(name="MTO", measurement_type=MeasurementType.CANTIDAD)
+        assert a != b
+
+    def test_hashable_and_usable_as_dict_key(self) -> None:
+        f = MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO)
+        d = {f: "value"}
+        assert d[f] == "value"
