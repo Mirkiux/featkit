@@ -102,30 +102,20 @@ class TestConcreteContracts:
         assert contract.valid_layer2_aggregators == frozenset(expected_aggs)
 
     def test_returns_frozenset(self) -> None:
-        for cls in [
-            MontoContract,
-            CantidadContract,
-            TicketContract,
-            FlagContract,
-            FechaContract,
-            BalanceContract,
-            TimeDiffContract,
-            EstadisticoContract,
-        ]:
-            assert isinstance(cls().valid_layer2_aggregators, frozenset)
+        instances: list[AbstractMeasurementTypeContract] = [
+            MontoContract(), CantidadContract(), TicketContract(), FlagContract(),
+            FechaContract(), BalanceContract(), TimeDiffContract(), EstadisticoContract(),
+        ]
+        for contract in instances:
+            assert isinstance(contract.valid_layer2_aggregators, frozenset)
 
     def test_frozenset_is_non_empty(self) -> None:
-        for cls in [
-            MontoContract,
-            CantidadContract,
-            TicketContract,
-            FlagContract,
-            FechaContract,
-            BalanceContract,
-            TimeDiffContract,
-            EstadisticoContract,
-        ]:
-            assert len(cls().valid_layer2_aggregators) > 0
+        instances: list[AbstractMeasurementTypeContract] = [
+            MontoContract(), CantidadContract(), TicketContract(), FlagContract(),
+            FechaContract(), BalanceContract(), TimeDiffContract(), EstadisticoContract(),
+        ]
+        for contract in instances:
+            assert len(contract.valid_layer2_aggregators) > 0
 
 
 class TestGetDefaultContract:
