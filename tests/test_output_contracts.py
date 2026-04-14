@@ -83,7 +83,12 @@ class TestConcreteOutputContracts:
             ),
         ],
     )
-    def test_valid_operators(self, contract_cls, ot, expected_ops) -> None:  # type: ignore[no-untyped-def]
+    def test_valid_operators(
+        self,
+        contract_cls: type[AbstractLayer2OutputContract],
+        ot: Layer2OutputType,
+        expected_ops: set[TemporalOperator],
+    ) -> None:
         contract = contract_cls()
         assert contract.output_type == ot
         assert contract.valid_temporal_operators == frozenset(expected_ops)
