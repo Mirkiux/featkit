@@ -2,7 +2,13 @@
 
 import pytest
 
-from featkit.enums import CategoricalTreatment, DistributionalMetric, FieldRole, MeasurementType, TimeGranularity
+from featkit.enums import (
+    CategoricalTreatment,
+    DistributionalMetric,
+    FieldRole,
+    MeasurementType,
+    TimeGranularity,
+)
 from featkit.fields import AbstractField, CategoricalField, IDField, MeasurementField, TimeField
 
 
