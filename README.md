@@ -28,6 +28,7 @@ pip install featkit
 
 ```python
 from featkit import FeatureStorePipeline, FeatureStoreConfig
+from featkit.dataset import SimpleDataset
 from featkit.fields import IDField, TimeField, CategoricalField, MeasurementField
 from featkit.enums import MeasurementType, TimeGranularity, CategoricalTreatment
 from featkit.generators.sql import SnowflakeSQLCodeGenerator
@@ -38,15 +39,21 @@ fields = [
     TimeField(name="PERIODO",
               source_granularity=TimeGranularity.MONTHLY,
               target_granularity=TimeGranularity.MONTHLY),
-    CategoricalField(name="SECTOR", treatment=CategoricalTreatment.PIVOT),
-    CategoricalField(name="CANAL",  treatment=CategoricalTreatment.PIVOT),
+    CategoricalField(name="SECTOR", treatment=CategoricalTreatment.PIVOT,
+                     allowed_values=["RETAIL", "CORP", "PYME"]),
+    CategoricalField(name="CANAL",  treatment=CategoricalTreatment.PIVOT,
+                     allowed_values=["DIGITAL", "PRESENCIAL", "TELEFONO"]),
     MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO),
-    MeasurementField(name="TRX", measurement_type=MeasurementType.FRECUENCIA),
+    MeasurementField(name="TRX", measurement_type=MeasurementType.CANTIDAD),
 ]
 
-config = FeatureStoreConfig(
+dataset = SimpleDataset(
     source_reference="MY_DB.MY_SCHEMA.FACTS_TABLE",
     fields=fields,
+)
+
+config = FeatureStoreConfig(
+    dataset=dataset,
     output_schema="MY_DB.MY_SCHEMA",
     output_table_prefix="FS",
     time_windows=[3, 6, 9, 12],

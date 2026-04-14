@@ -7,8 +7,10 @@ This document sequences the implementation of the featkit framework into discret
 ## Critical path
 
 ```
-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17
+(01 ∥ 02) → (03 ∥ 04 ∥ 05) → 06 → (07 ∥ 08) → (09 ∥ 10 ∥ 11) → 12 → 13 → (14 ∥ 16) → 15 → 17
 ```
+
+Plans connected by `∥` can be implemented in parallel. Arrows indicate that all predecessors must be complete before proceeding.
 
 ---
 
@@ -23,12 +25,12 @@ This document sequences the implementation of the featkit framework into discret
 | Enum | Values |
 |---|---|
 | `FieldRole` | `ID, TIME, CATEGORICAL, MEASUREMENT` |
-| `MeasurementType` | `MONTO, FRECUENCIA, TICKET, FLAG, FECHA, BALANCE, TIME_DIFF, ESTADISTICO` |
+| `MeasurementType` | `MONTO, CANTIDAD, TICKET, FLAG, FECHA, BALANCE, TIME_DIFF, ESTADISTICO` |
 | `TimeGranularity` | `DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY` |
 | `CategoricalTreatment` | `PIVOT, DISTRIBUTIONAL, BOTH` |
 | `Layer2Aggregator` | `SUM, COUNT, MAX, MIN, AVG` |
 | `DistributionalMetric` | `ENTROPY, HHI, DOMINANT_PROPORTION, MODE, COUNT` |
-| `Layer2OutputType` | `NUMERIC_CONTINUOUS, NUMERIC_DISCRETE, CATEGORICAL, FLAG, DATE, DURATION` |
+| `Layer2OutputType` | `NUMERIC, FLAG, CATEGORICAL, TEMPORAL` |
 | `TemporalOperator` | `PROM_U, PROM_P, SUM_U, SUM_P, ULT_MES, PREV_MES, CREC, FREQ, MIN_U, MAX_U, REC, XM, MEDIA_ABS, RATIO` |
 | `TimeWindowDirection` | `BACKWARD, FORWARD` |
 
@@ -69,11 +71,11 @@ This document sequences the implementation of the featkit framework into discret
 
 **Classes:**
 
-- `CategoricalField(AbstractField)`: `treatment: CategoricalTreatment`, `udafs: list[DistributionalMetric]` (required when treatment includes `DISTRIBUTIONAL`)
+- `CategoricalField(AbstractField)`: `treatment: CategoricalTreatment`, `distributional_metrics: list[DistributionalMetric]` (required when treatment includes `DISTRIBUTIONAL`), `allowed_values: list[str] | None = None` (explicit domain override; if `None`, domain is resolved at build time via the `PivotSpaceBuilder`'s `domain_resolver`)
 - `MeasurementField(AbstractField)`: `measurement_type: MeasurementType`, `contract: AbstractMeasurementTypeContract` (forward reference — filled in Plan 04)
 
 **Acceptance criteria:**
-- `CategoricalField` raises `ValueError` if `treatment` includes `DISTRIBUTIONAL` and `udafs` is empty
+- `CategoricalField` raises `ValueError` if `treatment` includes `DISTRIBUTIONAL` and `distributional_metrics` is empty
 - `MeasurementField` stores the contract reference without executing it
 - Tests in `tests/test_fields.py`
 
@@ -95,13 +97,15 @@ This document sequences the implementation of the featkit framework into discret
 | Contract | Valid aggregators |
 |---|---|
 | `MontoContract` | `SUM, MAX, MIN, AVG` |
-| `FrecuenciaContract` | `SUM, COUNT` |
+| `CantidadContract` | `SUM, COUNT` |
 | `TicketContract` | `AVG` |
 | `FlagContract` | `MAX` |
 | `FechaContract` | `MAX, MIN` |
 | `BalanceContract` | `MAX, MIN, AVG` |
 | `TimeDiffContract` | `SUM, AVG, MAX, MIN` |
 | `EstadisticoContract` | `SUM, AVG, MAX, MIN, COUNT` |
+
+**Note:** `CANTIDAD` represents a base count present in each source row (e.g., a `TRX_COUNT` column in the facts table). Event frequency across the observation window (how many periods contain non-zero activity, etc.) is a Layer 3 concept derived via temporal operators — it does not require a dedicated `MeasurementType`.
 
 **Acceptance criteria:**
 - Each contract returns a frozen, non-empty set of aggregators
@@ -125,12 +129,10 @@ This document sequences the implementation of the featkit framework into discret
 
 | Contract | Valid temporal operators |
 |---|---|
-| `NumericContinuousOutputContract` | `PROM_U, PROM_P, SUM_U, SUM_P, CREC, MIN_U, MAX_U, ULT_MES, PREV_MES, FREQ, XM, MEDIA_ABS, RATIO` |
-| `NumericDiscreteOutputContract` | `PROM_U, SUM_U, MIN_U, MAX_U, ULT_MES, PREV_MES, FREQ, XM` |
-| `CategoricalOutputContract` | `ULT_MES, PREV_MES, REC` |
+| `NumericOutputContract` | `PROM_U, PROM_P, SUM_U, SUM_P, CREC, MIN_U, MAX_U, ULT_MES, PREV_MES, FREQ, XM, MEDIA_ABS, RATIO` |
 | `FlagOutputContract` | `ULT_MES, PREV_MES, FREQ, XM, REC` |
-| `DateOutputContract` | `ULT_MES, PREV_MES, REC` |
-| `DurationOutputContract` | `PROM_U, MIN_U, MAX_U, ULT_MES, PREV_MES` |
+| `CategoricalOutputContract` | `ULT_MES, PREV_MES, REC` |
+| `TemporalOutputContract` | `ULT_MES, PREV_MES, REC, MIN_U, MAX_U, CREC` |
 
 **Acceptance criteria:**
 - Each contract returns a frozen, non-empty set of operators
@@ -158,14 +160,14 @@ This document sequences the implementation of the featkit framework into discret
 
 - `PivotedColumn(AbstractLayer2Column)`:
   - `categorical_combination: dict[CategoricalField, str | None]` — `None` = ∅ marginal
-  - `output_type` derived from `(source_measurement.measurement_type, layer2_aggregator)`
-  - `column_name` derived as `{aggregator}__{measurement}__{cat1_val}__{cat2_val}...`
+  - `output_type` derived from `source_measurement.measurement_type`: `FLAG` → `FLAG`; `FECHA` → `TEMPORAL`; all others → `NUMERIC`
+  - `column_name` derived as `{aggregator}__{measurement}__{catN_val}...` where categorical entries are sorted alphabetically by `field.name` — guarantees deterministic, collision-free names regardless of dict insertion order
   - Validates `layer2_aggregator ∈ source_measurement.contract.valid_layer2_aggregators` at construction
 
 - `DistributionalColumn(AbstractLayer2Column)`:
   - `categorical: CategoricalField`
   - `distributional_metric: DistributionalMetric`
-  - `output_type` derived from `distributional_metric` (MODE → CATEGORICAL, COUNT → NUMERIC_DISCRETE, others → NUMERIC_CONTINUOUS)
+  - `output_type` derived from `distributional_metric`: MODE → `CATEGORICAL`; all others (COUNT, ENTROPY, HHI, DOMINANT_PROPORTION) → `NUMERIC`
   - `column_name` derived as `{categorical}__{measurement}__{aggregator}__{metric}`
 
 **Acceptance criteria:**
@@ -211,7 +213,7 @@ This document sequences the implementation of the featkit framework into discret
 
 **Scope:** The schema descriptor for the input facts table. Pure metadata — no data access, no materialisation.
 
-**Class:**
+**Classes:**
 
 - `AbstractDataset` (ABC):
   - `source_reference: str` — fully-qualified table name or SQL string
@@ -223,9 +225,12 @@ This document sequences the implementation of the featkit framework into discret
     - `measurement_fields: list[MeasurementField]`
   - `validate()` — checks that exactly one `TIME` field and at least one `ID` and one `MEASUREMENT` field exist
 
+- `SimpleDataset(AbstractDataset)`: concrete, no-subclass entry point. Constructor takes `source_reference: str` and `fields: list[AbstractField]` directly. Implements no abstract methods beyond what `AbstractDataset` already provides. Used in quickstart and tests.
+
 **Acceptance criteria:**
 - `validate()` raises descriptive `ValueError` for each violation
 - Derived field properties always return correct subsets
+- `SimpleDataset` is instantiable with only `source_reference` and `fields`
 - Tests in `tests/test_fields.py`
 
 ---
@@ -244,14 +249,17 @@ This document sequences the implementation of the featkit framework into discret
   - `dataset: AbstractDataset`
   - `include_marginals: bool` — whether to include ∅ substitutions for each categorical
   - `aggregators_override: dict[MeasurementType, list[Layer2Aggregator]] | None`
+  - `domain_resolver: Callable[[CategoricalField], list[str]] | None` — invoked when `field.allowed_values is None`; typically wraps a `SELECT DISTINCT {col} FROM {table}` query via the dataset's data source adapter
   - `build() → list[PivotedColumn]`:
-    1. Compute cartesian product of `(categorical ∪ {None})` values across all pivot-eligible categoricals
-    2. For each combination × measurement × valid aggregator: create a `PivotedColumn`
-    3. Skip invalid aggregator/measurement combinations (contract-governed)
+    1. For each pivot-eligible categorical: resolve domain via `field.allowed_values` (static) when set, otherwise via `domain_resolver(field)` (dynamic); raise `ValueError` if both are `None`
+    2. Compute cartesian product of `(resolved_domain ∪ {None})` across all pivot-eligible categoricals
+    3. For each combination × measurement × valid aggregator: create a `PivotedColumn`
+    4. Skip invalid aggregator/measurement combinations (contract-governed)
 
 **Acceptance criteria:**
 - With 2 categoricals having 3 values each + marginals: generates `(3+1)² × measurements × agg` columns
 - No duplicates in output
+- Raises `ValueError` when `field.allowed_values` is `None` and no `domain_resolver` is provided
 - Tests in `tests/test_builders.py`
 
 ---
@@ -270,7 +278,7 @@ This document sequences the implementation of the featkit framework into discret
   - `dataset: AbstractDataset`
   - `value_measurements: list[MeasurementField] | None` — if `None`, use all measurement fields
   - `build() → list[DistributionalColumn]`:
-    For each (categorical with DISTRIBUTIONAL treatment) × (measurement) × (base_agg per contract) × (udaf in categorical.udafs): create a `DistributionalColumn`
+    For each (categorical with DISTRIBUTIONAL treatment) × (measurement) × (base_agg per contract) × (metric in categorical.distributional_metrics): create a `DistributionalColumn`
 
 **Acceptance criteria:**
 - Only processes categoricals where `treatment ∈ {DISTRIBUTIONAL, BOTH}`
@@ -375,7 +383,7 @@ layer2_join + layer3_temporal → final_output
 **Acceptance criteria:**
 - `build_dag` produces correct node/edge structure
 - `build_mermaid` produces valid Mermaid flowchart syntax
-- `FeatureStoreOutput.save()` writes `script.sql`, `dag.json`, `diagram.md`
+- `FeatureStoreOutput.save()` writes: `script.sql` (when `code` is `SQLOutput`), `script.py` (when `code` is `PySparkOutput`), plus `dag.json` and `diagram.md` in both cases
 - Tests in `tests/test_generators/`
 
 ---
@@ -398,7 +406,8 @@ layer2_join + layer3_temporal → final_output
 
 - `SnowflakeSQLCodeGenerator(AbstractSQLCodeGenerator)`:
   - `dialect = "snowflake"`
-  - Handles Snowflake-specific syntax: `QUALIFY`, `ARRAY_CONSTRUCT`, custom UDAF calls
+  - Handles Snowflake-specific syntax: `QUALIFY`, `ARRAY_CONSTRUCT`
+  - All distributional metrics (ENTROPY, HHI, DOMINANT_PROPORTION, MODE, COUNT) are expressed as pure SQL aggregate expressions within CTEs — no custom UDAFs or stored procedures
 
 **Acceptance criteria:**
 - Generated SQL is parseable by SQLGlot in the target dialect
@@ -423,7 +432,6 @@ layer2_join + layer3_temporal → final_output
 
 **Key dialect differences to handle:**
 - Table creation syntax (`CREATE OR REPLACE` vs `CREATE TABLE IF NOT EXISTS`)
-- UDAF registration differences
 - Temporary table syntax
 
 **Acceptance criteria:**
@@ -445,7 +453,7 @@ layer2_join + layer3_temporal → final_output
 - `PySparkCodeGenerator(AbstractCodeGenerator)`:
   - `build_mob_table` → cross-join via `.crossJoin()` + `row_number()` window
   - `build_layer2a` → `.groupBy()` + `F.when()` CASE WHEN pivot
-  - `build_layer2b` → per-categorical `.groupBy()` + UDAF application, then join
+  - `build_layer2b` → per-categorical `.groupBy()` + pure aggregate expressions (entropy, HHI, dominant proportion, mode, count via standard PySpark functions), then join
   - `build_layer3` → MOB join + `.agg()` with windowed CASE WHEN
   - `build_final_join` → `left_join` of Layer 2 and Layer 3 DataFrames
   - All steps are lazy — no `.collect()` or `.show()` calls
