@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "featkit"
+version = "0.1.0"
+description = "featkit — automated feature store generation from relational facts tables"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Mirko" }]
+keywords = [
+    "feature store", "feature engineering", "data engineering",
+    "analytics", "pyspark", "snowflake", "databricks", "pivot",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "sqlglot>=23.0",
+]
+
+[project.optional-dependencies]
+ibis = ["ibis-framework>=9.0"]
+spark = ["pyspark>=3.4"]
+databricks = ["databricks-sql-connector>=3.0"]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.25",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.4",
+    "mypy>=1.0",
+    "hatch>=1.9",
+    "build>=1.0",
+    "twine>=5.0",
+]
+
+[project.urls]
+Repository = "https://github.com/Mirkiux/featkit"
+Documentation = "https://mirkiux.github.io/featkit"
+Changelog = "https://github.com/Mirkiux/featkit/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/Mirkiux/featkit/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/featkit"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_any_generics = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=featkit --cov-report=term-missing"
+filterwarnings = ["ignore::pytest.PytestCollectionWarning"]
+
+[tool.coverage.run]
+source = ["src/featkit"]
