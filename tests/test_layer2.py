@@ -24,7 +24,6 @@ from featkit.layer2.base import AbstractLayer2Column
 from featkit.layer2.distributional import DistributionalColumn
 from featkit.layer2.pivoted import PivotedColumn
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
