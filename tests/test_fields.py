@@ -215,6 +215,41 @@ class TestCategoricalField:
         b = CategoricalField(name="B", treatment=CategoricalTreatment.PIVOT)
         assert a != b
 
+    def test_not_equal_different_distributional_metrics(self) -> None:
+        a = CategoricalField(
+            name="X",
+            treatment=CategoricalTreatment.DISTRIBUTIONAL,
+            distributional_metrics=[DistributionalMetric.ENTROPY],
+        )
+        b = CategoricalField(
+            name="X",
+            treatment=CategoricalTreatment.DISTRIBUTIONAL,
+            distributional_metrics=[DistributionalMetric.HHI],
+        )
+        assert a != b
+
+    def test_not_equal_different_allowed_values(self) -> None:
+        a = CategoricalField(
+            name="X", treatment=CategoricalTreatment.PIVOT, allowed_values=["A", "B"]
+        )
+        b = CategoricalField(
+            name="X", treatment=CategoricalTreatment.PIVOT, allowed_values=["A", "C"]
+        )
+        assert a != b
+
+    def test_equal_metrics_order_independent(self) -> None:
+        a = CategoricalField(
+            name="X",
+            treatment=CategoricalTreatment.DISTRIBUTIONAL,
+            distributional_metrics=[DistributionalMetric.ENTROPY, DistributionalMetric.HHI],
+        )
+        b = CategoricalField(
+            name="X",
+            treatment=CategoricalTreatment.DISTRIBUTIONAL,
+            distributional_metrics=[DistributionalMetric.HHI, DistributionalMetric.ENTROPY],
+        )
+        assert a == b
+
     def test_hashable_and_deduplicates_in_set(self) -> None:
         a = CategoricalField(name="X", treatment=CategoricalTreatment.PIVOT)
         b = CategoricalField(name="X", treatment=CategoricalTreatment.PIVOT)

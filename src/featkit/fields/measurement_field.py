@@ -8,6 +8,10 @@ from featkit.enums import FieldRole, MeasurementType
 from featkit.fields.base import AbstractField
 
 if TYPE_CHECKING:
+    # AbstractMeasurementTypeContract is defined in Plan 04
+    # (contracts/measurement/base.py). The TYPE_CHECKING guard keeps this a
+    # static-analysis-only import so the field module has no runtime dependency
+    # on the contracts package.
     from featkit.contracts.measurement.base import AbstractMeasurementTypeContract
 
 
