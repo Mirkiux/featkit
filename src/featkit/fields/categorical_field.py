@@ -48,9 +48,7 @@ class CategoricalField(AbstractField):
         return FieldRole.CATEGORICAL
 
     def _key(self) -> tuple[object, ...]:
-        normalized_metrics = tuple(
-            sorted(self.distributional_metrics, key=lambda m: m.value)
-        )
+        normalized_metrics = tuple(sorted(self.distributional_metrics, key=lambda m: m.value))
         normalized_values = (
             None if self.allowed_values is None else tuple(sorted(self.allowed_values))
         )

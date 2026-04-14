@@ -271,6 +271,7 @@ class TestMeasurementField:
 
     def test_contract_stored_without_execution(self) -> None:
         from unittest.mock import MagicMock
+
         mock_contract = MagicMock()
         field = MeasurementField(
             name="MTO", measurement_type=MeasurementType.MONTO, contract=mock_contract
