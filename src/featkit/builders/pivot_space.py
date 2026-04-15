@@ -61,7 +61,7 @@ class PivotSpaceBuilder:
                     f"CategoricalField {cat.name!r} has no allowed_values and no "
                     f"domain_resolver was provided"
                 )
-            if any(v is None for v in raw):  # type: ignore[misc]
+            if any(v is None for v in raw):
                 raise ValueError(
                     f"CategoricalField {cat.name!r}: resolved domain contains None; "
                     f"None is reserved as the \u2205 marginal sentinel"
