@@ -45,7 +45,7 @@ class TemporalFeature:
             )
             raise ValueError(
                 f"TemporalOperator.{operator.name} is not valid for "
-                f"output type {source.output_type.name}. "
+                f"output type Layer2OutputType.{source.output_type.name}. "
                 f"Valid operators: {valid}"
             )
 
