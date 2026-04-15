@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from itertools import product
+from typing import cast
 
 from featkit.contracts.measurement.defaults import get_default_contract
 from featkit.dataset.base import AbstractDataset
@@ -42,46 +43,54 @@ class PivotSpaceBuilder:
 
     def build(self) -> list[PivotedColumn]:
         """Build and return all PivotedColumn objects."""
+        all_cats = [cast(CategoricalField, f) for f in self.dataset.categorical_fields]
         pivot_cats = [
-            f
-            for f in self.dataset.categorical_fields
-            if isinstance(f, CategoricalField)
-            and f.treatment in {CategoricalTreatment.PIVOT, CategoricalTreatment.BOTH}
+            c
+            for c in all_cats
+            if c.treatment in {CategoricalTreatment.PIVOT, CategoricalTreatment.BOTH}
         ]
 
         cat_domains: dict[CategoricalField, list[str | None]] = {}
         for cat in pivot_cats:
             if cat.allowed_values is not None:
-                domain: list[str | None] = list(cat.allowed_values)
+                raw: list[str] = list(cat.allowed_values)
             elif self.domain_resolver is not None:
-                domain = list(self.domain_resolver(cat))
+                raw = list(self.domain_resolver(cat))
             else:
                 raise ValueError(
                     f"CategoricalField {cat.name!r} has no allowed_values and no "
                     f"domain_resolver was provided"
                 )
+            if any(v is None for v in raw):  # type: ignore[misc]
+                raise ValueError(
+                    f"CategoricalField {cat.name!r}: resolved domain contains None; "
+                    f"None is reserved as the \u2205 marginal sentinel"
+                )
+            domain: list[str | None] = list(raw)
             if self.include_marginals:
                 domain = domain + [None]
             cat_domains[cat] = domain
 
-        measurements = [
-            f for f in self.dataset.measurement_fields if isinstance(f, MeasurementField)
-        ]
+        measurements = [cast(MeasurementField, f) for f in self.dataset.measurement_fields]
 
         cats = list(cat_domains.keys())
-        combos = list(product(*[cat_domains[c] for c in cats])) if cats else [()]
+        combos = product(*(cat_domains[c] for c in cats)) if cats else ((),)
 
         results: list[PivotedColumn] = []
-        seen: set[str] = set()
+        seen: dict[str, PivotedColumn] = {}
 
         for combo in combos:
             cat_combination = {cats[i]: combo[i] for i in range(len(cats))} if cats else {}
             for mf in measurements:
                 for agg in self._valid_aggregators(mf):
                     col = PivotedColumn(mf, agg, cat_combination)
-                    if col.column_name not in seen:
-                        seen.add(col.column_name)
-                        results.append(col)
+                    if col.column_name in seen:
+                        raise ValueError(
+                            f"Duplicate pivot column name generated: {col.column_name!r}. "
+                            f"Conflicting columns: {seen[col.column_name]!r} and {col!r}"
+                        )
+                    seen[col.column_name] = col
+                    results.append(col)
 
         return results
 

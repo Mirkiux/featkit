@@ -58,7 +58,7 @@ class TestPivotSpaceBuilderNoCategoricals:
         cols = PivotSpaceBuilder(dataset=self._ds()).build()
         assert all(isinstance(c, PivotedColumn) for c in cols)
 
-    def test_no_duplicates(self) -> None:
+    def test_clean_inputs_produce_no_duplicate_names(self) -> None:
         cols = PivotSpaceBuilder(dataset=self._ds()).build()
         names = [c.column_name for c in cols]
         assert len(names) == len(set(names))
@@ -107,7 +107,7 @@ class TestPivotSpaceBuilderMarginals:
         # (3+1)² × 4 aggs = 64
         assert len(cols) == (3 + 1) ** 2 * 4
 
-    def test_no_duplicates_with_marginals(self) -> None:
+    def test_clean_domain_with_marginals_produces_no_duplicates(self) -> None:
         ds = SimpleDataset(
             "tbl",
             [
@@ -209,6 +209,31 @@ class TestPivotSpaceBuilderDomainResolution:
 
         PivotSpaceBuilder(dataset=ds, domain_resolver=resolver, include_marginals=False).build()
         assert calls == []
+
+    def test_domain_containing_none_raises(self) -> None:
+        def bad_resolver(f: CategoricalField) -> list[str]:
+            return ["A", None]  # type: ignore[list-item]
+
+        with pytest.raises(ValueError, match="None"):
+            PivotSpaceBuilder(
+                dataset=self._ds_no_values(),
+                domain_resolver=bad_resolver,
+            ).build()
+
+
+class TestPivotSpaceBuilderDuplicateDetection:
+    def test_duplicate_domain_values_raise(self) -> None:
+        ds = SimpleDataset(
+            "tbl",
+            [
+                _id(),
+                _ts(),
+                _mto(),
+                CategoricalField("sector", CategoricalTreatment.PIVOT, allowed_values=["A", "A"]),
+            ],
+        )
+        with pytest.raises(ValueError, match="Duplicate pivot column name"):
+            PivotSpaceBuilder(dataset=ds, include_marginals=False).build()
 
 
 class TestPivotSpaceBuilderAggregatorsOverride:
