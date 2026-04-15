@@ -401,3 +401,32 @@ class TestGenerate:
         result = _StubSQLGenerator().generate(_pipeline())
         assert isinstance(result.code, SQLOutput)
         assert result.code.dialect == _DIALECT
+
+
+# ---------------------------------------------------------------------------
+# AbstractCodeGenerator._combine_code() — dialect mismatch
+# ---------------------------------------------------------------------------
+
+
+class TestCombineCodeDialectMismatch:
+    def test_mixed_sql_dialects_raise_value_error(self) -> None:
+        class _MixedDialectGenerator(AbstractCodeGenerator):
+            def build_mob_table(self, pipeline: FeatureStorePipeline) -> CodeOutput:
+                return SQLOutput(sql="-- mob", dialect="snowflake")
+
+            def build_layer2a(self, pipeline: FeatureStorePipeline) -> CodeOutput:
+                return SQLOutput(sql="-- layer2a", dialect="bigquery")
+
+            def build_layer2b(self, pipeline: FeatureStorePipeline) -> CodeOutput:
+                return SQLOutput(sql="-- layer2b", dialect="snowflake")
+
+            def build_layer3(self, pipeline: FeatureStorePipeline) -> CodeOutput:
+                return SQLOutput(sql="-- layer3", dialect="snowflake")
+
+            def build_final_join(self, pipeline: FeatureStorePipeline) -> CodeOutput:
+                return SQLOutput(sql="-- final", dialect="snowflake")
+
+        import pytest
+
+        with pytest.raises(ValueError, match="Mixed SQLOutput dialects"):
+            _MixedDialectGenerator().generate(_pipeline())

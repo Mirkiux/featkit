@@ -136,6 +136,13 @@ class AbstractCodeGenerator(ABC):
             raise ValueError(msg)
 
         if sql_steps:
+            dialects = {s.dialect for s in sql_steps}
+            if len(dialects) > 1:
+                msg = (
+                    f"Mixed SQLOutput dialects are not supported in _combine_code(); "
+                    f"found dialects: {dialects}."
+                )
+                raise ValueError(msg)
             return SQLOutput(
                 sql="\n\n".join(s.sql for s in sql_steps),
                 dialect=sql_steps[0].dialect,
