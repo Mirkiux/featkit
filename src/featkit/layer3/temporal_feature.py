@@ -59,7 +59,11 @@ class TemporalFeature:
             raise ValueError(
                 f"TemporalOperator.{operator.name} is a windowed operator; window_size is required"
             )
-        if window_size is not None and window_size < 1:
+        if window_size is not None and (
+            isinstance(window_size, bool)
+            or not isinstance(window_size, int)
+            or window_size < 1
+        ):
             raise ValueError(f"window_size must be a positive integer, got {window_size!r}")
 
         self.source = source
