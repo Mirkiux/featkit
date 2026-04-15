@@ -99,6 +99,121 @@ class TestAbstractLayer2Column:
 
 
 # ---------------------------------------------------------------------------
+# Aggregator validation — enforced in AbstractLayer2Column for all subclasses
+# ---------------------------------------------------------------------------
+
+
+class TestAggregatorValidation:
+    def test_valid_aggregator_does_not_raise(self, monto: MeasurementField) -> None:
+        PivotedColumn(monto, Layer2Aggregator.SUM)
+
+    def test_invalid_aggregator_raises_value_error_pivoted(self, monto: MeasurementField) -> None:
+        with pytest.raises(ValueError, match="Layer2Aggregator.COUNT"):
+            PivotedColumn(monto, Layer2Aggregator.COUNT)
+
+    def test_invalid_aggregator_raises_value_error_distributional(
+        self, channel: CategoricalField
+    ) -> None:
+        ticket_field = MeasurementField("ticket_avg", MeasurementType.TICKET)
+        # Only AVG is valid for TICKET; SUM must raise
+        with pytest.raises(ValueError, match="Layer2Aggregator.SUM"):
+            DistributionalColumn(
+                ticket_field, Layer2Aggregator.SUM, channel, DistributionalMetric.ENTROPY
+            )
+
+    def test_error_message_names_valid_aggregators(self, cantidad: MeasurementField) -> None:
+        with pytest.raises(ValueError, match="SUM"):
+            PivotedColumn(cantidad, Layer2Aggregator.MAX)
+
+    def test_validation_uses_default_contract_when_field_has_none(self) -> None:
+        field = MeasurementField("revenue", MeasurementType.TICKET)
+        # Only AVG is valid for TICKET
+        PivotedColumn(field, Layer2Aggregator.AVG)
+        with pytest.raises(ValueError):
+            PivotedColumn(field, Layer2Aggregator.SUM)
+
+    def test_validation_uses_provided_contract(self) -> None:
+        from featkit.contracts.measurement.base import AbstractMeasurementTypeContract
+
+        class CountOnlyContract(AbstractMeasurementTypeContract):
+            @property
+            def valid_layer2_aggregators(self) -> frozenset[Layer2Aggregator]:
+                return frozenset({Layer2Aggregator.COUNT})
+
+        field = MeasurementField(
+            "x", MeasurementType.MONTO, contract=CountOnlyContract(MeasurementType.MONTO)
+        )
+        PivotedColumn(field, Layer2Aggregator.COUNT)
+        with pytest.raises(ValueError):
+            PivotedColumn(field, Layer2Aggregator.SUM)
+
+
+# ---------------------------------------------------------------------------
+# Column name separator validation
+# ---------------------------------------------------------------------------
+
+
+class TestColumnNameSeparatorValidation:
+    def test_measurement_name_with_separator_raises(self) -> None:
+        bad = MeasurementField("rev__enue", MeasurementType.MONTO)
+        with pytest.raises(ValueError, match="__"):
+            PivotedColumn(bad, Layer2Aggregator.SUM)
+
+    def test_measurement_name_with_separator_raises_distributional(
+        self, channel: CategoricalField
+    ) -> None:
+        bad = MeasurementField("rev__enue", MeasurementType.MONTO)
+        with pytest.raises(ValueError, match="__"):
+            DistributionalColumn(bad, Layer2Aggregator.SUM, channel, DistributionalMetric.ENTROPY)
+
+    def test_categorical_field_name_with_separator_raises(self, monto: MeasurementField) -> None:
+        bad_cat = CategoricalField(
+            "chan__nel",
+            CategoricalTreatment.PIVOT,
+        )
+        with pytest.raises(ValueError, match="__"):
+            PivotedColumn(monto, Layer2Aggregator.SUM, {bad_cat: "online"})
+
+    def test_categorical_value_with_separator_raises(
+        self, monto: MeasurementField, channel: CategoricalField
+    ) -> None:
+        with pytest.raises(ValueError, match="__"):
+            PivotedColumn(monto, Layer2Aggregator.SUM, {channel: "on__line"})
+
+    def test_distributional_categorical_name_with_separator_raises(
+        self, monto: MeasurementField
+    ) -> None:
+        bad_cat = CategoricalField(
+            "chan__nel",
+            CategoricalTreatment.BOTH,
+            distributional_metrics=[DistributionalMetric.ENTROPY],
+        )
+        with pytest.raises(ValueError, match="__"):
+            DistributionalColumn(monto, Layer2Aggregator.SUM, bad_cat, DistributionalMetric.ENTROPY)
+
+    def test_valid_names_with_single_underscore_do_not_raise(
+        self, monto: MeasurementField, channel: CategoricalField
+    ) -> None:
+        PivotedColumn(monto, Layer2Aggregator.SUM, {channel: "north_east"})
+
+
+# ---------------------------------------------------------------------------
+# PivotedColumn — categorical_combination defensive copy
+# ---------------------------------------------------------------------------
+
+
+class TestPivotedColumnDefensiveCopy:
+    def test_mutating_original_dict_does_not_affect_column(
+        self, monto: MeasurementField, channel: CategoricalField
+    ) -> None:
+        combo: dict[CategoricalField, str | None] = {channel: "online"}
+        col = PivotedColumn(monto, Layer2Aggregator.SUM, combo)
+        original_name = col.column_name
+        combo[channel] = "offline"  # mutate original
+        assert col.column_name == original_name
+
+
+# ---------------------------------------------------------------------------
 # PivotedColumn — output_type mapping
 # ---------------------------------------------------------------------------
 
@@ -118,7 +233,6 @@ class TestPivotedColumnOutputType:
         ],
     )
     def test_output_type(self, mt: MeasurementType, expected: Layer2OutputType) -> None:
-        # Use the first valid aggregator for each measurement type
         _valid_agg: dict[MeasurementType, Layer2Aggregator] = {
             MeasurementType.MONTO: Layer2Aggregator.SUM,
             MeasurementType.CANTIDAD: Layer2Aggregator.SUM,
@@ -131,6 +245,11 @@ class TestPivotedColumnOutputType:
         }
         col = PivotedColumn(MeasurementField(mt.value, mt), _valid_agg[mt])
         assert col.output_type == expected
+
+    def test_mapping_is_exhaustive_for_all_measurement_types(self) -> None:
+        from featkit.layer2.pivoted import _MT_TO_OUTPUT
+
+        assert set(_MT_TO_OUTPUT.keys()) == set(MeasurementType)
 
     def test_flag_output_contract_is_flag_contract(self, flag_field: MeasurementField) -> None:
         col = PivotedColumn(flag_field, Layer2Aggregator.MAX)
@@ -145,50 +264,6 @@ class TestPivotedColumnOutputType:
     def test_monto_output_contract_is_numeric_contract(self, monto: MeasurementField) -> None:
         col = PivotedColumn(monto, Layer2Aggregator.SUM)
         assert isinstance(col.output_contract, NumericOutputContract)
-
-
-# ---------------------------------------------------------------------------
-# PivotedColumn — aggregator validation
-# ---------------------------------------------------------------------------
-
-
-class TestPivotedColumnAggregatorValidation:
-    def test_valid_aggregator_does_not_raise(self, monto: MeasurementField) -> None:
-        PivotedColumn(monto, Layer2Aggregator.SUM)
-
-    def test_invalid_aggregator_raises_value_error(self, monto: MeasurementField) -> None:
-        with pytest.raises(ValueError, match="Layer2Aggregator.COUNT"):
-            PivotedColumn(monto, Layer2Aggregator.COUNT)
-
-    def test_error_message_names_valid_aggregators(self, cantidad: MeasurementField) -> None:
-        with pytest.raises(ValueError, match="SUM"):
-            PivotedColumn(cantidad, Layer2Aggregator.MAX)
-
-    def test_validation_uses_default_contract_when_field_has_none(
-        self,
-    ) -> None:
-        field = MeasurementField("revenue", MeasurementType.TICKET)
-        # Only AVG is valid for TICKET
-        PivotedColumn(field, Layer2Aggregator.AVG)
-        with pytest.raises(ValueError):
-            PivotedColumn(field, Layer2Aggregator.SUM)
-
-    def test_validation_uses_provided_contract(self) -> None:
-        from featkit.contracts.measurement.base import AbstractMeasurementTypeContract
-        from featkit.enums import Layer2Aggregator
-
-        # Inject a custom contract that only allows COUNT
-        class CountOnlyContract(AbstractMeasurementTypeContract):
-            @property
-            def valid_layer2_aggregators(self) -> frozenset[Layer2Aggregator]:
-                return frozenset({Layer2Aggregator.COUNT})
-
-        field = MeasurementField(
-            "x", MeasurementType.MONTO, contract=CountOnlyContract(MeasurementType.MONTO)
-        )
-        PivotedColumn(field, Layer2Aggregator.COUNT)
-        with pytest.raises(ValueError):
-            PivotedColumn(field, Layer2Aggregator.SUM)
 
 
 # ---------------------------------------------------------------------------
@@ -219,7 +294,6 @@ class TestPivotedColumnName:
         channel: CategoricalField,
         region: CategoricalField,
     ) -> None:
-        # "channel" < "region" alphabetically
         col = PivotedColumn(monto, Layer2Aggregator.SUM, {channel: "online", region: "north"})
         assert col.column_name == "SUM__amount__channel_online__region_north"
 

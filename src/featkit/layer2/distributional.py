@@ -5,7 +5,7 @@ from __future__ import annotations
 from featkit.enums import DistributionalMetric, Layer2Aggregator, Layer2OutputType
 from featkit.fields.categorical_field import CategoricalField
 from featkit.fields.measurement_field import MeasurementField
-from featkit.layer2.base import AbstractLayer2Column
+from featkit.layer2.base import AbstractLayer2Column, _check_name_part
 
 
 class DistributionalColumn(AbstractLayer2Column):
@@ -16,6 +16,11 @@ class DistributionalColumn(AbstractLayer2Column):
         layer2_aggregator: SQL aggregation function applied to the measurement.
         categorical: Categorical field whose value distribution is measured.
         distributional_metric: The distributional statistic to compute.
+
+    Raises:
+        ValueError: If ``layer2_aggregator`` is not permitted by the
+            measurement's contract, or if ``categorical.name`` contains the
+            column name separator (``__``).
     """
 
     def __init__(
@@ -26,6 +31,7 @@ class DistributionalColumn(AbstractLayer2Column):
         distributional_metric: DistributionalMetric,
     ) -> None:
         super().__init__(source_measurement, layer2_aggregator)
+        _check_name_part(categorical.name, "categorical field name")
         self.categorical = categorical
         self.distributional_metric = distributional_metric
 
