@@ -2,6 +2,7 @@
 
 import pytest
 
+from featkit.dataset.base import AbstractDataset, SimpleDataset
 from featkit.enums import (
     CategoricalTreatment,
     DistributionalMetric,
@@ -300,9 +301,6 @@ class TestMeasurementField:
 # ---------------------------------------------------------------------------
 
 
-from featkit.dataset.base import AbstractDataset, SimpleDataset  # noqa: E402
-
-
 def _make_valid_fields() -> list:
     return [
         IDField(name="ID_CLIENTE"),
@@ -375,7 +373,7 @@ class TestAbstractDatasetDerivedProperties:
 
     def test_time_field_raises_when_missing(self) -> None:
         ds = SimpleDataset("tbl", [IDField("id"), MeasurementField("m", MeasurementType.MONTO)])
-        with pytest.raises(ValueError, match="no TIME field"):
+        with pytest.raises(ValueError, match="no TIME field; exactly one is required"):
             _ = ds.time_field
 
     def test_time_field_raises_when_multiple(self) -> None:
@@ -388,7 +386,7 @@ class TestAbstractDatasetDerivedProperties:
                 MeasurementField("m", MeasurementType.MONTO),
             ],
         )
-        with pytest.raises(ValueError, match="2 TIME fields"):
+        with pytest.raises(ValueError, match="2 TIME fields; exactly one is required"):
             _ = ds.time_field
 
 
@@ -398,7 +396,7 @@ class TestAbstractDatasetValidate:
 
     def test_missing_time_field_raises(self) -> None:
         ds = SimpleDataset("tbl", [IDField("id"), MeasurementField("m", MeasurementType.MONTO)])
-        with pytest.raises(ValueError, match="no TIME field"):
+        with pytest.raises(ValueError, match="no TIME field; exactly one is required"):
             ds.validate()
 
     def test_multiple_time_fields_raises(self) -> None:
@@ -411,7 +409,7 @@ class TestAbstractDatasetValidate:
                 MeasurementField("m", MeasurementType.MONTO),
             ],
         )
-        with pytest.raises(ValueError, match="2 TIME fields"):
+        with pytest.raises(ValueError, match="2 TIME fields; exactly one is required"):
             ds.validate()
 
     def test_missing_id_field_raises(self) -> None:

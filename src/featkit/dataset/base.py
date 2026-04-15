@@ -6,10 +6,6 @@ from abc import ABC
 
 from featkit.enums import FieldRole
 from featkit.fields.base import AbstractField
-from featkit.fields.categorical_field import CategoricalField
-from featkit.fields.id_field import IDField
-from featkit.fields.measurement_field import MeasurementField
-from featkit.fields.time_field import TimeField
 
 
 class AbstractDataset(ABC):  # noqa: B024
@@ -34,33 +30,33 @@ class AbstractDataset(ABC):  # noqa: B024
     # ------------------------------------------------------------------
 
     @property
-    def id_fields(self) -> list[IDField]:
+    def id_fields(self) -> list[AbstractField]:
         """All fields whose role is :attr:`~featkit.enums.FieldRole.ID`."""
-        return [f for f in self.fields if isinstance(f, IDField)]
+        return [f for f in self.fields if f.role == FieldRole.ID]
 
     @property
-    def time_field(self) -> TimeField:
-        """The single :class:`~featkit.fields.TimeField` in this dataset.
+    def time_field(self) -> AbstractField:
+        """The single TIME field in this dataset.
 
         Raises:
             ValueError: If no TIME field exists or more than one does.
         """
-        time_fields = [f for f in self.fields if isinstance(f, TimeField)]
+        time_fields = [f for f in self.fields if f.role == FieldRole.TIME]
         if len(time_fields) == 0:
-            raise ValueError("Dataset has no TIME field; exactly one is required")
+            raise ValueError("no TIME field; exactly one is required")
         if len(time_fields) > 1:
-            raise ValueError(f"Dataset has {len(time_fields)} TIME fields; exactly one is required")
+            raise ValueError(f"{len(time_fields)} TIME fields; exactly one is required")
         return time_fields[0]
 
     @property
-    def categorical_fields(self) -> list[CategoricalField]:
+    def categorical_fields(self) -> list[AbstractField]:
         """All fields whose role is :attr:`~featkit.enums.FieldRole.CATEGORICAL`."""
-        return [f for f in self.fields if isinstance(f, CategoricalField)]
+        return [f for f in self.fields if f.role == FieldRole.CATEGORICAL]
 
     @property
-    def measurement_fields(self) -> list[MeasurementField]:
+    def measurement_fields(self) -> list[AbstractField]:
         """All fields whose role is :attr:`~featkit.enums.FieldRole.MEASUREMENT`."""
-        return [f for f in self.fields if isinstance(f, MeasurementField)]
+        return [f for f in self.fields if f.role == FieldRole.MEASUREMENT]
 
     # ------------------------------------------------------------------
     # Validation
@@ -82,9 +78,9 @@ class AbstractDataset(ABC):  # noqa: B024
 
         time_count = sum(1 for f in self.fields if f.role == FieldRole.TIME)
         if time_count == 0:
-            violations.append("no TIME field found; exactly one is required")
+            violations.append("no TIME field; exactly one is required")
         elif time_count > 1:
-            violations.append(f"{time_count} TIME fields found; exactly one is required")
+            violations.append(f"{time_count} TIME fields; exactly one is required")
 
         if not any(f.role == FieldRole.ID for f in self.fields):
             violations.append("no ID field found; at least one is required")
