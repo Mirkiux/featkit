@@ -39,4 +39,4 @@ class MeasurementField(AbstractField):
         return FieldRole.MEASUREMENT
 
     def _key(self) -> tuple[object, ...]:
-        return (self.name, self.measurement_type)
+        return (self.name, self.measurement_type, self.contract)

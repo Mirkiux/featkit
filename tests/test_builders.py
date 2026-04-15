@@ -1,8 +1,11 @@
-"""Tests for Plans 09, 10, and 11 — space builders."""
+"""Tests for Plan 10 — DistributionalSpaceBuilder."""
 
 from __future__ import annotations
 
+import pytest
+
 from featkit.builders.distributional_space import DistributionalSpaceBuilder
+from featkit.contracts.measurement.defaults import get_default_contract
 from featkit.dataset.base import SimpleDataset
 from featkit.enums import (
     CategoricalTreatment,
@@ -156,13 +159,14 @@ class TestDistributionalSpaceBuilderValueMeasurements:
         assert len(cols) == 5
 
     def test_custom_value_measurements_restricts_sources(self) -> None:
-        cols = DistributionalSpaceBuilder(
-            dataset=self._ds_two_meas(),
-            value_measurements=[_mto()],
-        ).build()
+        ds = self._ds_two_meas()
+        cols = DistributionalSpaceBuilder(dataset=ds, value_measurements=[_mto()]).build()
         # Only MONTO: 4 aggs x 1 metric = 4
         assert len(cols) == 4
         assert all(c.source_measurement.measurement_type == MeasurementType.MONTO for c in cols)
+
+        dataset_mto = next(f for f in ds.measurement_fields if f.name == "mto")
+        assert all(c.source_measurement is dataset_mto for c in cols)
 
     def test_empty_value_measurements_produces_no_columns(self) -> None:
         cols = DistributionalSpaceBuilder(
@@ -170,6 +174,39 @@ class TestDistributionalSpaceBuilderValueMeasurements:
             value_measurements=[],
         ).build()
         assert len(cols) == 0
+
+    def test_value_measurement_not_in_dataset_raises(self) -> None:
+        unknown = MeasurementField("unknown", MeasurementType.TICKET)
+        with pytest.raises(ValueError, match="'unknown'"):
+            DistributionalSpaceBuilder(
+                dataset=self._ds_two_meas(),
+                value_measurements=[unknown],
+            ).build()
+
+    def test_value_measurement_with_mismatched_contract_raises(self) -> None:
+        ds = SimpleDataset(
+            "tbl",
+            [
+                _id(),
+                _ts(),
+                MeasurementField(
+                    "mto",
+                    MeasurementType.MONTO,
+                    contract=get_default_contract(MeasurementType.MONTO),
+                ),
+                CategoricalField(
+                    "sector",
+                    CategoricalTreatment.DISTRIBUTIONAL,
+                    distributional_metrics=[DistributionalMetric.ENTROPY],
+                ),
+            ],
+        )
+
+        with pytest.raises(ValueError, match="'mto'"):
+            DistributionalSpaceBuilder(
+                dataset=ds,
+                value_measurements=[MeasurementField("mto", MeasurementType.MONTO)],
+            ).build()
 
 
 class TestDistributionalSpaceBuilderMultipleCategoricals:

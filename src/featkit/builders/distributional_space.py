@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from featkit.contracts.measurement.defaults import get_default_contract
 from featkit.dataset.base import AbstractDataset
 from featkit.enums import CategoricalTreatment
@@ -20,7 +22,10 @@ class DistributionalSpaceBuilder:
     Args:
         dataset: The source facts-table schema.
         value_measurements: Restrict which measurement fields are used as the
-            value source. If None, all measurement fields in the dataset are used.
+            value source. ``None`` means use all measurement fields in the dataset.
+            An empty list produces no columns. Every entry must be present in the
+            dataset (compared by name, type, and contract); a ``ValueError`` is
+            raised for unknown fields.
     """
 
     def __init__(
@@ -33,18 +38,27 @@ class DistributionalSpaceBuilder:
 
     def build(self) -> list[DistributionalColumn]:
         """Build and return all DistributionalColumn objects."""
+        all_cats = [cast(CategoricalField, f) for f in self.dataset.categorical_fields]
         dist_cats = [
-            f
-            for f in self.dataset.categorical_fields
-            if isinstance(f, CategoricalField)
-            and f.treatment in {CategoricalTreatment.DISTRIBUTIONAL, CategoricalTreatment.BOTH}
+            c
+            for c in all_cats
+            if c.treatment in {CategoricalTreatment.DISTRIBUTIONAL, CategoricalTreatment.BOTH}
         ]
 
-        measurements: list[MeasurementField] = (
-            self.value_measurements
-            if self.value_measurements is not None
-            else [f for f in self.dataset.measurement_fields if isinstance(f, MeasurementField)]
-        )
+        dataset_measurements = [cast(MeasurementField, f) for f in self.dataset.measurement_fields]
+
+        if self.value_measurements is not None:
+            measurements: list[MeasurementField] = []
+            for requested in self.value_measurements:
+                matched = next((m for m in dataset_measurements if m == requested), None)
+                if matched is None:
+                    raise ValueError(
+                        f"MeasurementField {requested.name!r} "
+                        f"(type {requested.measurement_type.name}) is not present in the dataset"
+                    )
+                measurements.append(matched)
+        else:
+            measurements = dataset_measurements
 
         results: list[DistributionalColumn] = []
         seen: set[str] = set()

@@ -32,5 +32,16 @@ class AbstractMeasurementTypeContract(ABC):
         """Return ``True`` if the aggregator is permitted by this contract."""
         return aggregator in self.valid_layer2_aggregators
 
+    def _key(self) -> tuple[object, ...]:
+        return (self.measurement_type, self.valid_layer2_aggregators)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AbstractMeasurementTypeContract):
+            return NotImplemented
+        return type(self) is type(other) and self._key() == other._key()
+
+    def __hash__(self) -> int:
+        return hash((type(self), self._key()))
+
     def __repr__(self) -> str:
         return f"{type(self).__name__}(measurement_type={self.measurement_type.name})"
