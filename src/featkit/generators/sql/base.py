@@ -47,10 +47,18 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
     def _tbl(self, pipeline: FeatureStorePipeline, suffix: str) -> str:
         """Return a fully-qualified intermediate table name.
 
-        The schema is double-quoted to prevent clashes with reserved words.
+        Both the schema and table identifiers are quoted through SQLGlot so
+        reserved words and special characters are rendered safely per dialect.
         """
         cfg = pipeline.config
-        return f'"{cfg.output_schema}".{cfg.output_table_prefix}{suffix}'
+        return self.render(
+            sqlglot.exp.Table(
+                this=sqlglot.exp.to_identifier(
+                    f"{cfg.output_table_prefix}{suffix}", quoted=True
+                ),
+                db=sqlglot.exp.to_identifier(cfg.output_schema, quoted=True),
+            )
+        )
 
     def _transpile(self, sql: str) -> str:
         """Parse *sql* in :attr:`dialect` and re-emit it (formatted)."""
