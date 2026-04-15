@@ -1,4 +1,4 @@
-"""Tests for Plans 02 and 03 — all field descriptors."""
+"""Tests for Plans 02, 03, and 08 — field descriptors and dataset schema."""
 
 import pytest
 
@@ -293,3 +293,167 @@ class TestMeasurementField:
         f = MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO)
         d = {f: "value"}
         assert d[f] == "value"
+
+
+# ---------------------------------------------------------------------------
+# Plan 08 — AbstractDataset and SimpleDataset
+# ---------------------------------------------------------------------------
+
+
+from featkit.dataset.base import AbstractDataset, SimpleDataset  # noqa: E402
+
+
+def _make_valid_fields() -> list:
+    return [
+        IDField(name="ID_CLIENTE"),
+        TimeField(
+            name="PERIODO",
+            source_granularity=TimeGranularity.MONTHLY,
+            target_granularity=TimeGranularity.MONTHLY,
+        ),
+        MeasurementField(name="MTO_TRX", measurement_type=MeasurementType.MONTO),
+    ]
+
+
+class TestSimpleDataset:
+    def test_instantiable_with_valid_fields(self) -> None:
+        ds = SimpleDataset("db.schema.facts", _make_valid_fields())
+        assert ds is not None
+
+    def test_source_reference_stored(self) -> None:
+        ds = SimpleDataset("db.schema.facts", _make_valid_fields())
+        assert ds.source_reference == "db.schema.facts"
+
+    def test_fields_stored_as_list_copy(self) -> None:
+        fields = _make_valid_fields()
+        ds = SimpleDataset("db.schema.facts", fields)
+        fields.append(IDField(name="EXTRA"))
+        assert len(ds.fields) == 3  # original length, not mutated
+
+    def test_is_abstract_dataset_instance(self) -> None:
+        ds = SimpleDataset("db.schema.facts", _make_valid_fields())
+        assert isinstance(ds, AbstractDataset)
+
+    def test_repr_contains_class_and_source(self) -> None:
+        ds = SimpleDataset("db.schema.facts", _make_valid_fields())
+        r = repr(ds)
+        assert "SimpleDataset" in r
+        assert "db.schema.facts" in r
+
+
+class TestAbstractDatasetDerivedProperties:
+    def _make_ds(self) -> SimpleDataset:
+        return SimpleDataset(
+            "tbl",
+            [
+                IDField("id1"),
+                IDField("id2"),
+                TimeField("ts", TimeGranularity.DAILY, TimeGranularity.MONTHLY),
+                MeasurementField("mto", MeasurementType.MONTO),
+                MeasurementField("cnt", MeasurementType.CANTIDAD),
+                CategoricalField("sector", CategoricalTreatment.PIVOT),
+            ],
+        )
+
+    def test_id_fields_returns_only_id_fields(self) -> None:
+        ds = self._make_ds()
+        assert all(f.role == FieldRole.ID for f in ds.id_fields)
+        assert len(ds.id_fields) == 2
+
+    def test_time_field_returns_single_time_field(self) -> None:
+        ds = self._make_ds()
+        assert ds.time_field.name == "ts"
+
+    def test_categorical_fields_returns_only_categoricals(self) -> None:
+        ds = self._make_ds()
+        assert len(ds.categorical_fields) == 1
+        assert ds.categorical_fields[0].name == "sector"
+
+    def test_measurement_fields_returns_only_measurements(self) -> None:
+        ds = self._make_ds()
+        assert len(ds.measurement_fields) == 2
+
+    def test_time_field_raises_when_missing(self) -> None:
+        ds = SimpleDataset("tbl", [IDField("id"), MeasurementField("m", MeasurementType.MONTO)])
+        with pytest.raises(ValueError, match="no TIME field"):
+            _ = ds.time_field
+
+    def test_time_field_raises_when_multiple(self) -> None:
+        ds = SimpleDataset(
+            "tbl",
+            [
+                IDField("id"),
+                TimeField("t1", TimeGranularity.MONTHLY, TimeGranularity.MONTHLY),
+                TimeField("t2", TimeGranularity.MONTHLY, TimeGranularity.MONTHLY),
+                MeasurementField("m", MeasurementType.MONTO),
+            ],
+        )
+        with pytest.raises(ValueError, match="2 TIME fields"):
+            _ = ds.time_field
+
+
+class TestAbstractDatasetValidate:
+    def test_valid_dataset_does_not_raise(self) -> None:
+        SimpleDataset("tbl", _make_valid_fields()).validate()
+
+    def test_missing_time_field_raises(self) -> None:
+        ds = SimpleDataset("tbl", [IDField("id"), MeasurementField("m", MeasurementType.MONTO)])
+        with pytest.raises(ValueError, match="no TIME field"):
+            ds.validate()
+
+    def test_multiple_time_fields_raises(self) -> None:
+        ds = SimpleDataset(
+            "tbl",
+            [
+                IDField("id"),
+                TimeField("t1", TimeGranularity.MONTHLY, TimeGranularity.MONTHLY),
+                TimeField("t2", TimeGranularity.MONTHLY, TimeGranularity.MONTHLY),
+                MeasurementField("m", MeasurementType.MONTO),
+            ],
+        )
+        with pytest.raises(ValueError, match="2 TIME fields"):
+            ds.validate()
+
+    def test_missing_id_field_raises(self) -> None:
+        ds = SimpleDataset(
+            "tbl",
+            [
+                TimeField("ts", TimeGranularity.MONTHLY, TimeGranularity.MONTHLY),
+                MeasurementField("m", MeasurementType.MONTO),
+            ],
+        )
+        with pytest.raises(ValueError, match="no ID field"):
+            ds.validate()
+
+    def test_missing_measurement_field_raises(self) -> None:
+        ds = SimpleDataset(
+            "tbl",
+            [
+                IDField("id"),
+                TimeField("ts", TimeGranularity.MONTHLY, TimeGranularity.MONTHLY),
+            ],
+        )
+        with pytest.raises(ValueError, match="no MEASUREMENT field"):
+            ds.validate()
+
+    def test_duplicate_field_names_raises(self) -> None:
+        ds = SimpleDataset(
+            "tbl",
+            [
+                IDField("id"),
+                TimeField("ts", TimeGranularity.MONTHLY, TimeGranularity.MONTHLY),
+                MeasurementField("amount", MeasurementType.MONTO),
+                MeasurementField("amount", MeasurementType.CANTIDAD),
+            ],
+        )
+        with pytest.raises(ValueError, match="duplicate field name"):
+            ds.validate()
+
+    def test_multiple_violations_reported_together(self) -> None:
+        ds = SimpleDataset("tbl", [])
+        with pytest.raises(ValueError) as exc_info:
+            ds.validate()
+        msg = str(exc_info.value)
+        assert "TIME" in msg
+        assert "ID" in msg
+        assert "MEASUREMENT" in msg
