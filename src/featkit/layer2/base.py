@@ -18,15 +18,6 @@ if TYPE_CHECKING:
 COLUMN_NAME_SEP = "__"
 
 
-def _check_name_part(value: str, description: str) -> None:
-    """Raise ``ValueError`` if *value* contains :data:`COLUMN_NAME_SEP`."""
-    if COLUMN_NAME_SEP in value:
-        raise ValueError(
-            f"{description} {value!r} must not contain the column name separator "
-            f"{COLUMN_NAME_SEP!r}"
-        )
-
-
 class AbstractLayer2Column(ABC):
     """Common base for every column in the Layer 2 horizontal concept table.
 
@@ -39,12 +30,21 @@ class AbstractLayer2Column(ABC):
             contains the column name separator.
     """
 
+    @staticmethod
+    def _check_name_part(value: str, description: str) -> None:
+        """Raise ``ValueError`` if *value* contains :data:`COLUMN_NAME_SEP`."""
+        if COLUMN_NAME_SEP in value:
+            raise ValueError(
+                f"{description} {value!r} must not contain the column name separator "
+                f"{COLUMN_NAME_SEP!r}"
+            )
+
     def __init__(
         self,
         source_measurement: MeasurementField,
         layer2_aggregator: Layer2Aggregator,
     ) -> None:
-        _check_name_part(source_measurement.name, "source_measurement.name")
+        AbstractLayer2Column._check_name_part(source_measurement.name, "source_measurement.name")
         contract = source_measurement.contract or get_default_contract(
             source_measurement.measurement_type
         )

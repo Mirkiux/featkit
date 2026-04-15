@@ -5,7 +5,7 @@ from __future__ import annotations
 from featkit.enums import Layer2Aggregator, Layer2OutputType, MeasurementType
 from featkit.fields.categorical_field import CategoricalField
 from featkit.fields.measurement_field import MeasurementField
-from featkit.layer2.base import AbstractLayer2Column, _check_name_part
+from featkit.layer2.base import AbstractLayer2Column
 
 _MT_TO_OUTPUT: dict[MeasurementType, Layer2OutputType] = {
     MeasurementType.MONTO: Layer2OutputType.NUMERIC,
@@ -47,9 +47,9 @@ class PivotedColumn(AbstractLayer2Column):
             dict(categorical_combination) if categorical_combination is not None else {}
         )
         for field, value in self.categorical_combination.items():
-            _check_name_part(field.name, "categorical field name")
+            self._check_name_part(field.name, "categorical field name")
             if value is not None:
-                _check_name_part(value, "categorical value")
+                self._check_name_part(value, "categorical value")
 
     @property
     def output_type(self) -> Layer2OutputType:
