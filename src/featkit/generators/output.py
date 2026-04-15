@@ -114,4 +114,5 @@ class FeatureStoreOutput:
             self.code.save(str(d / "script.py"))
 
         (d / "dag.json").write_text(self.dag.to_json(), encoding="utf-8")
-        (d / "diagram.md").write_text(f"```mermaid\n{self.mermaid}\n```\n", encoding="utf-8")
+        diagram_content = f"```mermaid\n{self.mermaid}\n```\n"
+        (d / "diagram.md").write_text(diagram_content, encoding="utf-8")
