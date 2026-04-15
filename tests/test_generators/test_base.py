@@ -6,6 +6,8 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from featkit.config import FeatureStoreConfig
 from featkit.dataset.base import SimpleDataset
 from featkit.enums import (
@@ -425,8 +427,6 @@ class TestCombineCodeDialectMismatch:
 
             def build_final_join(self, pipeline: FeatureStorePipeline) -> CodeOutput:
                 return SQLOutput(sql="-- final", dialect="snowflake")
-
-        import pytest
 
         with pytest.raises(ValueError, match="Mixed SQLOutput dialects"):
             _MixedDialectGenerator().generate(_pipeline())
