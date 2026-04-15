@@ -130,6 +130,31 @@ class TestConcreteContracts:
             assert len(contract.valid_layer2_aggregators) > 0
 
 
+class TestAbstractMeasurementTypeContractEquality:
+    def test_same_class_equal(self) -> None:
+        assert MontoContract() == MontoContract()
+
+    def test_different_class_not_equal(self) -> None:
+        assert MontoContract() != CantidadContract()
+
+    def test_hash_consistent_with_equality(self) -> None:
+        assert hash(MontoContract()) == hash(MontoContract())
+
+    def test_different_class_different_hash(self) -> None:
+        assert hash(MontoContract()) != hash(CantidadContract())
+
+    def test_usable_as_dict_key(self) -> None:
+        d = {MontoContract(): "monto"}
+        assert d[MontoContract()] == "monto"
+
+    def test_usable_in_set(self) -> None:
+        s = {MontoContract(), MontoContract(), CantidadContract()}
+        assert len(s) == 2
+
+    def test_not_equal_to_non_contract(self) -> None:
+        assert MontoContract().__eq__("not a contract") is NotImplemented
+
+
 class TestGetDefaultContract:
     def test_covers_every_measurement_type(self) -> None:
         for mt in MeasurementType:

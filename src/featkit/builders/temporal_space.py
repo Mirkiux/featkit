@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+
 from featkit.enums import Layer2OutputType, TemporalOperator, TimeWindowDirection
 from featkit.layer2.base import AbstractLayer2Column
 from featkit.layer3.temporal_feature import _POINT_IN_TIME_OPERATORS, TemporalFeature

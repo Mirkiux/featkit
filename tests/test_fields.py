@@ -2,6 +2,7 @@
 
 import pytest
 
+from featkit.contracts.measurement.defaults import get_default_contract
 from featkit.dataset.base import AbstractDataset, SimpleDataset
 from featkit.enums import (
     CategoricalTreatment,
@@ -288,6 +289,15 @@ class TestMeasurementField:
     def test_not_equal_different_measurement_type(self) -> None:
         a = MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO)
         b = MeasurementField(name="MTO", measurement_type=MeasurementType.CANTIDAD)
+        assert a != b
+
+    def test_not_equal_same_name_and_type_but_different_contract(self) -> None:
+        a = MeasurementField(
+            name="MTO",
+            measurement_type=MeasurementType.MONTO,
+            contract=get_default_contract(MeasurementType.MONTO),
+        )
+        b = MeasurementField(name="MTO", measurement_type=MeasurementType.MONTO)
         assert a != b
 
     def test_hashable_and_usable_as_dict_key(self) -> None:
