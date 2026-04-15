@@ -126,14 +126,22 @@ class AbstractCodeGenerator(ABC):
         should override :meth:`generate` instead.
         """
         sql_steps = [s for s in steps if isinstance(s, SQLOutput) and s.sql]
+        pyspark_steps = [s for s in steps if isinstance(s, PySparkOutput) and s.code]
+
+        if sql_steps and pyspark_steps:
+            msg = (
+                "Mixed non-empty code output types are not supported in "
+                "_combine_code(); found both SQLOutput and PySparkOutput."
+            )
+            raise ValueError(msg)
+
         if sql_steps:
             return SQLOutput(
                 sql="\n\n".join(s.sql for s in sql_steps),
                 dialect=sql_steps[0].dialect,
             )
-        pyspark_steps = [s for s in steps if isinstance(s, PySparkOutput)]
         if pyspark_steps:
-            return PySparkOutput(code="\n\n".join(s.code for s in pyspark_steps if s.code))
+            return PySparkOutput(code="\n\n".join(s.code for s in pyspark_steps))
         # All steps were empty SQLOutputs — return an empty one.
         if any(isinstance(s, SQLOutput) for s in steps):
             return SQLOutput(
