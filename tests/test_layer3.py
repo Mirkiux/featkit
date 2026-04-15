@@ -16,7 +16,7 @@ from featkit.fields.categorical_field import CategoricalField
 from featkit.fields.measurement_field import MeasurementField
 from featkit.layer2.distributional import DistributionalColumn
 from featkit.layer2.pivoted import PivotedColumn
-from featkit.layer3.temporal_feature import _POINT_IN_TIME_OPERATORS, TemporalFeature
+from featkit.layer3.temporal_feature import TemporalFeature
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -54,6 +54,13 @@ def temporal_col() -> PivotedColumn:
 
 _BWD = TimeWindowDirection.BACKWARD
 _FWD = TimeWindowDirection.FORWARD
+
+# Explicit set of point-in-time operators (do not require a window).
+_POINT_IN_TIME_OPERATORS = [
+    TemporalOperator.ULT_MES,
+    TemporalOperator.PREV_MES,
+    TemporalOperator.REC,
+]
 
 
 # ---------------------------------------------------------------------------
