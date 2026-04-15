@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from featkit.enums import Layer2OutputType, TemporalOperator, TimeWindowDirection
 from featkit.layer2.base import AbstractLayer2Column
 from featkit.layer3.temporal_feature import _POINT_IN_TIME_OPERATORS, TemporalFeature
@@ -65,15 +66,15 @@ class TemporalSpaceBuilder:
                 )
 
             for op in operators:
-                window_sizes: list[int | None]
+                window_sizes: Sequence[int | None]
                 if op in _COMPOSED_OPERATORS:
                     if self.composed_windows is None:
                         continue
-                    window_sizes = list(self.composed_windows)  # type: ignore[assignment]
+                    window_sizes = list(self.composed_windows)
                 elif op in _POINT_IN_TIME_OPERATORS:
                     window_sizes = [None]
                 else:
-                    window_sizes = list(self.time_windows)  # type: ignore[assignment]
+                    window_sizes = list(self.time_windows)
 
                 for ws in window_sizes:
                     feat = TemporalFeature(col, op, self.direction, window_size=ws)
