@@ -52,9 +52,9 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         """SQLGlot dialect identifier (e.g. ``"snowflake"``, ``"databricks"``)."""
         ...
 
-    def render(self, expr: sqlglot.Expression) -> str:
+    def render(self, expr: exp.Expression) -> str:
         """Render a SQLGlot expression tree to the target dialect SQL string."""
-        return expr.sql(dialect=self.dialect)
+        return str(expr.sql(dialect=self.dialect))
 
     # ------------------------------------------------------------------
     # Internal helpers
