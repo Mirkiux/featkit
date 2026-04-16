@@ -224,7 +224,7 @@ class PySparkCodeGenerator(AbstractCodeGenerator):
         """Return a PySpark agg() expression string for one distributional metric."""
         cv = f"F.col({cat_val_col})"
         tv = f"F.col({total_val_col})"
-        share = f"({cv} / F.when({tv} != 0, {tv}))"
+        share = f"F.when({tv} != 0, {cv} / {tv}).otherwise(F.lit(0.0))"
 
         if metric == DistributionalMetric.ENTROPY:
             p = share
