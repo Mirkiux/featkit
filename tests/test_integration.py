@@ -495,7 +495,7 @@ class TestDAGCorrectness:
 class TestMermaidOutput:
     @pytest.fixture(params=_ALL_GENERATORS, ids=_GENERATOR_IDS)
     def result(self, request: pytest.FixtureRequest) -> FeatureStoreOutput:
-        return request.param.generate(_full_pipeline())
+        return cast(FeatureStoreOutput, request.param.generate(_full_pipeline()))
 
     def test_starts_with_flowchart_td(self, result: FeatureStoreOutput) -> None:
         assert result.mermaid.startswith("flowchart TD")
