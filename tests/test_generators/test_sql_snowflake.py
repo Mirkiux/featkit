@@ -188,11 +188,11 @@ class TestBuildMobTable:
     def test_contains_row_number(self) -> None:
         assert "ROW_NUMBER" in self._sql().upper()
 
-    def test_contains_cross_join(self) -> None:
-        assert "CROSS JOIN" in self._sql().upper()
+    def test_uses_period_ctes(self) -> None:
+        assert "periodos_ordenados" in self._sql()
 
-    def test_contains_partition_by(self) -> None:
-        assert "PARTITION BY" in self._sql().upper()
+    def test_mob_uses_periodos_unicos(self) -> None:
+        assert "periodos_unicos" in self._sql()
 
     def test_references_source_table(self) -> None:
         assert "db.facts" in self._sql()
@@ -307,6 +307,11 @@ class TestBuildLayer2b:
         sql = _GEN.build_layer2b(_pipeline_all_metrics()).sql.upper()
         assert "COUNT(" in sql
 
+    def test_no_nested_aggregate(self) -> None:
+        out = _GEN.build_layer2b(_pipeline_all_metrics())
+        assert isinstance(out, SQLOutput)
+        assert "SUM(SUM(" not in out.sql.upper()
+
 
 # ---------------------------------------------------------------------------
 # build_layer3
@@ -319,11 +324,11 @@ class TestBuildLayer3:
         assert isinstance(out, SQLOutput)
         return out.sql
 
-    def test_contains_window_over(self) -> None:
-        assert "OVER" in self._sql().upper()
+    def test_contains_group_by(self) -> None:
+        assert "GROUP BY" in self._sql().upper()
 
-    def test_contains_partition_by(self) -> None:
-        assert "PARTITION BY" in self._sql().upper()
+    def test_contains_case_when(self) -> None:
+        assert "CASE WHEN" in self._sql().upper()
 
     def test_references_mob_ref(self) -> None:
         assert "mob_ref" in self._sql()

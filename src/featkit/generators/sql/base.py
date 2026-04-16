@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from abc import abstractmethod
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import sqlglot
+import sqlglot.expressions as exp
 
 from featkit.enums import DistributionalMetric, TemporalOperator, TimeWindowDirection
 from featkit.generators.base import AbstractCodeGenerator
@@ -22,12 +24,26 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
     """Base for all SQL-emitting code generators.
 
     Subclasses must declare :attr:`dialect`. All five build steps are
-    implemented here by composing SQL strings that are then validated and
-    normalised through SQLGlot so that dialect-specific rendering (quoting,
-    function names, formatting) is applied automatically.
+    implemented here by composing SQL strings that are validated and
+    normalised through SQLGlot so that dialect-specific rendering is applied
+    automatically.
 
-    The schema name in all intermediate table references is double-quoted to
-    guard against dialect-reserved words (e.g. ``out``, ``schema``).
+    Both the schema and table portions of every generated table reference are
+    double-quoted, guarding against reserved words and special characters in
+    user-supplied names.  Categorical values used in CASE WHEN predicates are
+    rendered as SQLGlot :class:`~sqlglot.expressions.Literal` objects so that
+    single quotes and other special characters are escaped correctly.
+
+    MOB reference table structure (period self-join):
+
+    .. code-block:: text
+
+        periodos_unicos → periodos_ordenados (ROW_NUMBER by period)
+        periodos_ordenados A LEFT JOIN periodos_ordenados B ON 1=1
+        → (ts_analysis, ts_relative, mob = B.mob - A.mob)
+
+    Layer 3 features are then derived by joining with the MOB table and using
+    GROUP BY + CASE WHEN aggregation to implement each temporal operator.
     """
 
     @property
@@ -45,41 +61,81 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
     # ------------------------------------------------------------------
 
     def _tbl(self, pipeline: FeatureStorePipeline, suffix: str) -> str:
-        """Return a fully-qualified intermediate table name.
+        """Return a fully-qualified, double-quoted intermediate table reference.
 
-        The schema is double-quoted to prevent clashes with reserved words.
+        Both schema and table name are quoted to prevent clashes with reserved
+        words and to support names that contain special characters.
         """
         cfg = pipeline.config
-        return f'"{cfg.output_schema}".{cfg.output_table_prefix}{suffix}'
+        return f'"{cfg.output_schema}"."{cfg.output_table_prefix}{suffix}"'
 
     def _transpile(self, sql: str) -> str:
-        """Parse *sql* in :attr:`dialect` and re-emit it (formatted)."""
+        """Parse *sql* in :attr:`dialect` and re-emit it (pretty-printed)."""
         return sqlglot.transpile(sql, read=self.dialect, write=self.dialect, pretty=True)[0]
+
+    @staticmethod
+    def _safe_cte_name(name: str) -> str:
+        """Return a SQL-safe CTE identifier from *name*.
+
+        Replaces any character outside ``[A-Za-z0-9_]`` with ``_`` so that
+        field names containing hyphens, spaces, or other special characters
+        produce valid unquoted identifiers.
+        """
+        return re.sub(r"[^A-Za-z0-9]", "_", name)
+
+    def _str_literal(self, value: str) -> str:
+        """Render *value* as a correctly escaped SQL string literal."""
+        return exp.Literal.string(value).sql(dialect=self.dialect)
+
+    def _quoted_id(self, name: str) -> str:
+        """Render *name* as a quoted SQL identifier."""
+        return exp.Identifier(this=name, quoted=True).sql(dialect=self.dialect)
 
     # ------------------------------------------------------------------
     # build_mob_table
     # ------------------------------------------------------------------
 
     def build_mob_table(self, pipeline: FeatureStorePipeline) -> SQLOutput:
-        """Generate the Month-on-Books cross-join + ROW_NUMBER reference table."""
+        """Generate the MOB (Month-on-Books) period cross-reference table.
+
+        The implementation follows the period self-join pattern:
+
+        1. ``periodos_unicos`` — distinct periods from the source table.
+        2. ``periodos_ordenados`` — assigns a sequential ``mob`` number to each
+           period via ``ROW_NUMBER() OVER (ORDER BY {time_col})``.
+        3. Self-join on ``1 = 1`` to produce all (analysis, relative) period
+           combinations.
+        4. ``mob = B.mob - A.mob`` gives the signed period offset: 0 = current,
+           negative = past, positive = future.
+
+        The resulting table has columns:
+        ``{time_col}_analysis``, ``{time_col}_relative``, ``mob``.
+        """
         ds = pipeline.config.dataset
-        id_cols = [f.name for f in ds.id_fields]
         time_col = ds.time_field.name
         src = ds.source_reference
         tbl = self._tbl(pipeline, "mob_ref")
 
-        id_sel_e = ", ".join(f"e.{c}" for c in id_cols)
-        id_sel_src = ", ".join(id_cols)
-        id_partition = ", ".join(f"e.{c}" for c in id_cols)
+        time_analysis = f"{time_col}_analysis"
+        time_relative = f"{time_col}_relative"
 
         sql = (
             f"CREATE OR REPLACE TABLE {tbl} AS\n"
+            f"WITH periodos_unicos AS (\n"
+            f"  SELECT DISTINCT {time_col}\n"
+            f"  FROM {src}\n"
+            f"),\n"
+            f"periodos_ordenados AS (\n"
+            f"  SELECT {time_col},\n"
+            f"         ROW_NUMBER() OVER (ORDER BY {time_col}) AS mob\n"
+            f"  FROM periodos_unicos\n"
+            f")\n"
             f"SELECT\n"
-            f"  {id_sel_e},\n"
-            f"  p.{time_col},\n"
-            f"  ROW_NUMBER() OVER (PARTITION BY {id_partition} ORDER BY p.{time_col}) AS mob\n"
-            f"FROM (SELECT DISTINCT {id_sel_src} FROM {src}) e\n"
-            f"CROSS JOIN (SELECT DISTINCT {time_col} FROM {src}) p"
+            f"  a.{time_col} AS {time_analysis},\n"
+            f"  b.{time_col} AS {time_relative},\n"
+            f"  b.mob - a.mob AS mob\n"
+            f"FROM periodos_ordenados a\n"
+            f"LEFT JOIN periodos_ordenados b ON 1 = 1"
         )
         return SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
 
@@ -88,7 +144,13 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
     # ------------------------------------------------------------------
 
     def build_layer2a(self, pipeline: FeatureStorePipeline) -> SQLOutput:
-        """Generate the Layer 2A pivot aggregation table."""
+        """Generate the Layer 2A pivot aggregation table.
+
+        Categorical values in CASE WHEN predicates are rendered via
+        :meth:`_str_literal` to escape special characters and prevent
+        SQL injection in the generated script.  Column identifiers are
+        double-quoted via :meth:`_quoted_id`.
+        """
         ds = pipeline.config.dataset
         id_cols = [f.name for f in ds.id_fields]
         time_col = ds.time_field.name
@@ -103,7 +165,7 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
             alias = col.column_name
 
             conditions = [
-                f"{cat_field.name} = '{cat_val}'"
+                f"{self._quoted_id(cat_field.name)} = {self._str_literal(cat_val)}"
                 for cat_field, cat_val in sorted(
                     col.categorical_combination.items(), key=lambda kv: kv[0].name
                 )
@@ -136,11 +198,24 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
     def build_layer2b(self, pipeline: FeatureStorePipeline) -> SQLOutput:
         """Generate the Layer 2B distributional CTEs table.
 
-        Produces one pair of CTEs per (categorical, measurement, aggregator)
-        group: a *shares* CTE that computes per-category sums and totals, and
-        a *metrics* CTE that derives the requested distributional statistics.
-        All metrics CTEs are joined back to a ``base`` (DISTINCT id × ts) CTE
+        For each (categorical, measurement, aggregator) group three CTEs are
+        produced:
+
+        * ``{safe}_raw`` — ``GROUP BY`` that computes per-category aggregates
+          (``cat_val``).
+        * ``{safe}_shares`` — window function over ``{safe}_raw`` that adds
+          ``total_val = SUM(cat_val) OVER (PARTITION BY ids, time_col)``.
+          Splitting into two CTEs avoids the invalid Snowflake pattern of
+          nesting an aggregate inside a window aggregate
+          (``SUM(SUM(x)) OVER (...)``).
+        * ``{safe}_metrics`` — computes the requested distributional statistics
+          from ``{safe}_shares``.
+
+        All metrics CTEs are joined back to a ``base`` (DISTINCT ids × ts) CTE
         via ``LEFT JOIN``.
+
+        CTE names are sanitised via :meth:`_safe_cte_name` to handle field
+        names that contain special characters.
         """
         if not pipeline.layer2b:
             return SQLOutput(sql="", dialect=self.dialect)
@@ -164,25 +239,36 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         metrics_cte_names: list[str] = []
 
         for (cat_name, meas_name, agg_name), cols in groups.items():
-            safe = f"{cat_name}_{meas_name}_{agg_name.lower()}"
+            safe = "_".join(self._safe_cte_name(p) for p in [cat_name, meas_name, agg_name.lower()])
+            raw_cte = safe + "_raw"
             shares_cte = safe + "_shares"
             metrics_cte = safe + "_metrics"
             metrics_cte_names.append(metrics_cte)
 
+            # Step 1: group-level aggregation (no nested aggregate)
             cte_defs.append(
-                f"{shares_cte} AS (\n"
+                f"{raw_cte} AS (\n"
                 f"  SELECT\n"
                 f"    {id_list},\n"
                 f"    {time_col},\n"
                 f"    {cat_name},\n"
-                f"    {agg_name}({meas_name}) AS cat_val,\n"
-                f"    SUM({agg_name}({meas_name})) OVER "
-                f"(PARTITION BY {id_list}, {time_col}) AS total_val\n"
+                f"    {agg_name}({meas_name}) AS cat_val\n"
                 f"  FROM {src}\n"
                 f"  GROUP BY {id_list}, {time_col}, {cat_name}\n"
                 f")"
             )
 
+            # Step 2: window function on already-aggregated cat_val
+            cte_defs.append(
+                f"{shares_cte} AS (\n"
+                f"  SELECT\n"
+                f"    *,\n"
+                f"    SUM(cat_val) OVER (PARTITION BY {id_list}, {time_col}) AS total_val\n"
+                f"  FROM {raw_cte}\n"
+                f")"
+            )
+
+            # Step 3: distributional metrics
             metric_exprs = [
                 "    "
                 + self._distributional_expr(col.distributional_metric, cat_name, col.column_name)
@@ -222,9 +308,8 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
     def _distributional_expr(self, metric: DistributionalMetric, cat_col: str, alias: str) -> str:
         """Return a SQL aggregate expression for one distributional metric.
 
-        All expressions operate on columns produced by the corresponding
-        *shares* CTE (``cat_val`` = per-category aggregate,
-        ``total_val`` = entity×period total).
+        Operates on columns from the *shares* CTE:
+        ``cat_val`` = per-category aggregate, ``total_val`` = entity×period total.
         """
         if metric == DistributionalMetric.ENTROPY:
             return (
@@ -249,8 +334,16 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
     def build_layer3(self, pipeline: FeatureStorePipeline) -> SQLOutput:
         """Generate the Layer 3 temporal features table.
 
-        Joins the MOB reference table with Layer 2A (and Layer 2B if present)
-        and computes one window-function expression per :class:`TemporalFeature`.
+        Joins the MOB reference table with Layer 2A (and Layer 2B if present),
+        then derives every :class:`~featkit.layer3.temporal_feature.TemporalFeature`
+        via a ``GROUP BY (id_cols, ts_analysis)`` aggregation.  Each operator is
+        expressed as an aggregate over a ``CASE WHEN mob BETWEEN … THEN col END``
+        filter, so the approach scales to any window size without window-function
+        ``ROWS BETWEEN`` clauses.
+
+        The join between Layer 2A/B and the MOB table is on
+        ``l2a.{time_col} = mob.{time_col}_relative`` so that the correct
+        relative-period values are aggregated for each analysis snapshot.
         """
         ds = pipeline.config.dataset
         id_cols = [f.name for f in ds.id_fields]
@@ -260,85 +353,97 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         l2b_tbl = self._tbl(pipeline, "layer2b")
         tbl = self._tbl(pipeline, "layer3")
 
-        id_m_sel = ", ".join(f"m.{c}" for c in id_cols)
-        id_partition = ", ".join(f"m.{c}" for c in id_cols)
-        id_using = ", ".join(id_cols)
+        time_relative = f"{time_col}_relative"
+        time_analysis = f"{time_col}_analysis"
 
-        select_parts: list[str] = [id_m_sel, f"m.{time_col}", "m.mob"]
+        l2a_id_sel = ", ".join(f"l2a.{c}" for c in id_cols)
+        group_by = ", ".join([f"l2a.{c}" for c in id_cols] + [f"mob.{time_analysis}"])
+
+        select_parts: list[str] = [l2a_id_sel, f"mob.{time_analysis} AS {time_col}"]
         for feat in pipeline.layer3:
-            expr = self._temporal_expr(feat, id_partition)
+            expr = self._temporal_expr(feat)
             select_parts.append(f"{expr} AS {feat.column_name}")
 
         select_list = ",\n  ".join(select_parts)
 
-        l2b_join = (
-            f"\nLEFT JOIN {l2b_tbl} l2b USING ({id_using}, {time_col})" if pipeline.layer2b else ""
-        )
+        # Layer 2B join: use l2a's (id, ts) since l2a.ts = mob.ts_relative already
+        if pipeline.layer2b:
+            l2b_join_conds = " AND ".join(
+                [f"l2b.{c} = l2a.{c}" for c in id_cols] + [f"l2b.{time_col} = l2a.{time_col}"]
+            )
+            l2b_join = f"\nLEFT JOIN {l2b_tbl} l2b ON {l2b_join_conds}"
+        else:
+            l2b_join = ""
 
         sql = (
             f"CREATE OR REPLACE TABLE {tbl} AS\n"
             f"SELECT\n  {select_list}\n"
-            f"FROM {mob_tbl} m\n"
-            f"LEFT JOIN {l2a_tbl} l2a USING ({id_using}, {time_col})"
-            f"{l2b_join}"
+            f"FROM {mob_tbl} mob\n"
+            f"JOIN {l2a_tbl} l2a ON l2a.{time_col} = mob.{time_relative}"
+            f"{l2b_join}\n"
+            f"GROUP BY {group_by}"
         )
         return SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
 
-    def _temporal_expr(self, feat: TemporalFeature, id_partition: str) -> str:
-        """Return a SQL window-function expression for one :class:`TemporalFeature`."""
+    def _temporal_expr(self, feat: TemporalFeature, mob_col: str = "mob.mob") -> str:
+        """Return a GROUP BY-compatible aggregate expression for one temporal feature.
+
+        Uses ``CASE WHEN {mob_col} BETWEEN … THEN col END`` inside an aggregate
+        function so that each operator maps to a standard SQL aggregate over the
+        appropriate period range.  Backward windows use negative mob offsets
+        (current = 0, one period back = -1, etc.); forward windows use positive
+        offsets.
+        """
         from featkit.layer2.distributional import DistributionalColumn
 
-        # Qualify column with the correct Layer 2 alias
         src_col = feat.source.column_name
-        col = (
-            f"l2b.{src_col}" if isinstance(feat.source, DistributionalColumn) else f"l2a.{src_col}"
-        )
+        prefix = "l2b" if isinstance(feat.source, DistributionalColumn) else "l2a"
+        col = f"{prefix}.{src_col}"
 
         op = feat.operator
         w = feat.window_size
         bwd = feat.direction == TimeWindowDirection.BACKWARD
 
-        over_pit = f"OVER (PARTITION BY {id_partition} ORDER BY m.mob)"
-
         if w is not None:
-            prec = w - 1
-            frame = (
-                f"ROWS BETWEEN {prec} PRECEDING AND CURRENT ROW"
-                if bwd
-                else f"ROWS BETWEEN CURRENT ROW AND {prec} FOLLOWING"
-            )
-            over_w = f"OVER (PARTITION BY {id_partition} ORDER BY m.mob {frame})"
+            if bwd:
+                lo, hi = -(w - 1), 0
+            else:
+                lo, hi = 0, w - 1
+            in_window = f"{mob_col} BETWEEN {lo} AND {hi}"
+            case_col = f"CASE WHEN {in_window} THEN {col} END"
+            case_notnull = f"CASE WHEN {in_window} AND {col} IS NOT NULL THEN 1 END"
 
         if op == TemporalOperator.PROM_U:
-            return f"AVG({col}) {over_w}"
+            return f"AVG({case_col})"
         if op == TemporalOperator.PROM_P:
-            return f"AVG({col}) {over_w}"
+            return f"AVG({case_col})"
         if op == TemporalOperator.SUM_U:
-            return f"SUM({col}) {over_w}"
+            return f"SUM({case_col})"
         if op == TemporalOperator.SUM_P:
-            return f"SUM({col}) {over_w}"
+            return f"SUM({case_col})"
         if op == TemporalOperator.MIN_U:
-            return f"MIN({col}) {over_w}"
+            return f"MIN({case_col})"
         if op == TemporalOperator.MAX_U:
-            return f"MAX({col}) {over_w}"
+            return f"MAX({case_col})"
         if op == TemporalOperator.ULT_MES:
-            return col
+            return f"MAX(CASE WHEN {mob_col} = 0 THEN {col} END)"
         if op == TemporalOperator.PREV_MES:
-            return f"LAG({col}, 1) {over_pit}"
+            return f"MAX(CASE WHEN {mob_col} = -1 THEN {col} END)"
         if op == TemporalOperator.CREC:
-            lag = f"LAG({col}, 1) {over_pit}"
-            return f"({col} - {lag}) / NULLIF({lag}, 0)"
+            curr = f"MAX(CASE WHEN {mob_col} = 0 THEN {col} END)"
+            prev = f"MAX(CASE WHEN {mob_col} = -1 THEN {col} END)"
+            return f"({curr} / NULLIF({prev}, 0)) - 1"
         if op == TemporalOperator.FREQ:
-            return f"SUM(CASE WHEN {col} IS NOT NULL THEN 1 ELSE 0 END) {over_w}"
+            return f"COUNT({case_notnull})"
         if op == TemporalOperator.XM:
-            return f"SUM(CASE WHEN {col} IS NOT NULL THEN 1 ELSE 0 END) {over_w}"
+            return f"COUNT({case_notnull})"
         if op == TemporalOperator.REC:
-            return f"m.mob - MAX(CASE WHEN {col} IS NOT NULL THEN m.mob ELSE NULL END) {over_pit}"
+            return f"-MAX(CASE WHEN {col} IS NOT NULL THEN {mob_col} END)"
         if op == TemporalOperator.MEDIA_ABS:
-            return f"MEDIAN({col}) {over_w}"
+            return f"MEDIAN({case_col})"
         if op == TemporalOperator.RATIO:
-            return f"SUM({col}) {over_w}"
-        return col
+            return f"SUM({case_col})"
+        return f"MAX(CASE WHEN {mob_col} = 0 THEN {col} END)"
 
     # ------------------------------------------------------------------
     # build_final_join
