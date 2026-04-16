@@ -175,8 +175,11 @@ class TestBuildMobTable:
     def test_contains_row_number(self) -> None:
         assert "row_number" in self._code()
 
-    def test_contains_window_partition(self) -> None:
-        assert "Window.partitionBy" in self._code()
+    def test_uses_period_self_join(self) -> None:
+        code = self._code()
+        assert "_periodos_ordenados" in code
+        assert "ts_analysis" in code
+        assert "ts_relative" in code
 
     def test_references_source_table(self) -> None:
         assert "db.facts" in self._code()
@@ -300,11 +303,11 @@ class TestBuildLayer3:
     def test_references_layer2a(self) -> None:
         assert "layer2a" in self._code()
 
-    def test_contains_window_over(self) -> None:
-        assert ".over(" in self._code()
+    def test_contains_group_by(self) -> None:
+        assert "groupBy" in self._code()
 
-    def test_contains_window_partition(self) -> None:
-        assert "Window.partitionBy" in self._code()
+    def test_contains_case_when(self) -> None:
+        assert "F.when(" in self._code()
 
     def test_output_table_present(self) -> None:
         assert "feat_layer3" in self._code()
@@ -322,6 +325,7 @@ class TestBuildLayer3:
 
     def test_no_layer2b_join_when_pivot_only(self) -> None:
         out = _GEN.build_layer3(_pipeline_pivot_only())
+        assert isinstance(out, PySparkOutput)
         assert "layer2b" not in out.code
 
 
@@ -350,6 +354,7 @@ class TestBuildFinalJoin:
 
     def test_no_layer2b_when_pivot_only(self) -> None:
         out = _GEN.build_final_join(_pipeline_pivot_only())
+        assert isinstance(out, PySparkOutput)
         assert "layer2b" not in out.code
 
     def test_code_is_valid_python(self) -> None:

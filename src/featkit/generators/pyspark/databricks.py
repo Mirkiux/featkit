@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from featkit.enums import DistributionalMetric, TemporalOperator, TimeWindowDirection
 from featkit.generators.base import AbstractCodeGenerator
-from featkit.generators.output import CodeOutput, PySparkOutput
+from featkit.generators.output import CodeOutput, FeatureStoreOutput, PySparkOutput
 
 if TYPE_CHECKING:
     from featkit.layer2.distributional import DistributionalColumn
@@ -33,6 +34,19 @@ class PySparkCodeGenerator(AbstractCodeGenerator):
     a single script that, when executed against a live ``SparkSession``, builds
     the full feature table using lazy DataFrame transformations.
 
+    MOB reference table structure (period self-join, mirrors the SQL generator):
+
+    * ``_periodos_ordenados`` — distinct periods with a sequential ``mob`` number
+      assigned via ``Window.orderBy(time_col)``.
+    * ``crossJoin`` of the ordered periods with itself produces all
+      ``(ts_analysis, ts_relative)`` pairs.
+    * ``mob = mob_b - mob_a`` gives the signed offset (0 = current, negative = past).
+
+    Layer 3 features are derived by joining the MOB table with Layer 2A/B on
+    ``ts_relative == ts``, then using ``groupBy(ids + [ts_analysis])`` with
+    ``F.when(F.col("mob").between(lo, hi), col)`` aggregates — no window
+    functions required.
+
     All generated transformations are lazy — no ``.collect()`` or ``.show()``
     calls are emitted.
     """
@@ -57,24 +71,38 @@ class PySparkCodeGenerator(AbstractCodeGenerator):
     # ------------------------------------------------------------------
 
     def build_mob_table(self, pipeline: FeatureStorePipeline) -> CodeOutput:
-        """Generate the MOB reference DataFrame via crossJoin + row_number."""
+        """Generate the MOB reference DataFrame via period self-join.
+
+        Assigns a sequential ``mob`` number to each distinct period using
+        ``Window.orderBy(time_col)``, then cross-joins the ordered periods
+        with themselves to produce all ``(ts_analysis, ts_relative)`` pairs.
+        ``mob = mob_b - mob_a`` (0 = current period, negative = past).
+        """
         ds = pipeline.config.dataset
-        id_cols = [f.name for f in ds.id_fields]
         time_col = ds.time_field.name
         src = ds.source_reference
         tbl = self._tbl(pipeline, "mob_ref")
 
-        id_select = ", ".join(f'"{c}"' for c in id_cols)
-        id_partition = ", ".join(f'"{c}"' for c in id_cols)
+        time_analysis = f"{time_col}_analysis"
+        time_relative = f"{time_col}_relative"
 
         code = (
             f"# --- MOB reference table ---\n"
-            f"facts = spark.read.table({src!r})\n"
-            f"entities = facts.select({id_select}).distinct()\n"
-            f'periods = facts.select("{time_col}").distinct()\n'
-            f"mob_cross = entities.crossJoin(periods)\n"
-            f"_mob_window = Window.partitionBy({id_partition}).orderBy({time_col!r})\n"
-            f'mob_ref = mob_cross.withColumn("mob", F.row_number().over(_mob_window))\n'
+            f"_facts = spark.read.table({src!r})\n"
+            f'_periods = _facts.select("{time_col}").distinct()\n'
+            f'_mob_win = Window.orderBy("{time_col}")\n'
+            f'_periodos_ordenados = _periods.withColumn("mob", F.row_number().over(_mob_win))\n'
+            f"_a = _periodos_ordenados.select(\n"
+            f'    F.col("{time_col}").alias("{time_analysis}"),\n'
+            f'    F.col("mob").alias("mob_a"),\n'
+            f")\n"
+            f"_b = _periodos_ordenados.select(\n"
+            f'    F.col("{time_col}").alias("{time_relative}"),\n'
+            f'    F.col("mob").alias("mob_b"),\n'
+            f")\n"
+            f"mob_ref = _a.crossJoin(_b).withColumn(\n"
+            f'    "mob", F.col("mob_b") - F.col("mob_a")\n'
+            f').drop("mob_a", "mob_b")\n'
             f"mob_ref.write.mode('overwrite').saveAsTable({tbl!r})\n"
         )
         return PySparkOutput(code=code)
@@ -118,14 +146,22 @@ class PySparkCodeGenerator(AbstractCodeGenerator):
 
         agg_list = ",\n".join(agg_exprs)
 
-        code = (
-            f"# --- Layer 2A: pivot aggregations ---\n"
-            f"_l2a_facts = spark.read.table({src!r})\n"
-            f"layer2a = _l2a_facts.groupBy({group_cols}).agg(\n"
-            f"{agg_list},\n"
-            f")\n"
-            f"layer2a.write.mode('overwrite').saveAsTable({tbl!r})\n"
-        )
+        if agg_exprs:
+            code = (
+                f"# --- Layer 2A: pivot aggregations ---\n"
+                f"_l2a_facts = spark.read.table({src!r})\n"
+                f"layer2a = _l2a_facts.groupBy({group_cols}).agg(\n"
+                f"{agg_list},\n"
+                f")\n"
+                f"layer2a.write.mode('overwrite').saveAsTable({tbl!r})\n"
+            )
+        else:
+            code = (
+                f"# --- Layer 2A: no pivot aggregations; preserve grouping grain ---\n"
+                f"_l2a_facts = spark.read.table({src!r})\n"
+                f"layer2a = _l2a_facts.select({group_cols}).distinct()\n"
+                f"layer2a.write.mode('overwrite').saveAsTable({tbl!r})\n"
+            )
         return PySparkOutput(code=code)
 
     # ------------------------------------------------------------------
@@ -150,9 +186,6 @@ class PySparkCodeGenerator(AbstractCodeGenerator):
 
         group_cols = ", ".join(f'"{c}"' for c in id_cols + [time_col])
         id_time_cols = ", ".join(f'"{c}"' for c in id_cols + [time_col])
-
-        # Group by (cat, meas, agg) to share intermediate DataFrames
-        from collections import defaultdict
 
         groups: dict[tuple[str, str, str], list[DistributionalColumn]] = defaultdict(list)
         for col in pipeline.layer2b:
@@ -229,14 +262,14 @@ class PySparkCodeGenerator(AbstractCodeGenerator):
         if metric == DistributionalMetric.ENTROPY:
             p = share
             return (
-                f'F.sum(F.when({cv} > 0, -{p} * F.log({p}))).otherwise(F.lit(0.0)).alias("{alias}")'
+                f'F.sum(F.when({cv} > 0, -{p} * F.log({p})).otherwise(F.lit(0.0))).alias("{alias}")'
             )
         if metric == DistributionalMetric.HHI:
             return f'F.sum(F.pow({share}, F.lit(2))).alias("{alias}")'
         if metric == DistributionalMetric.DOMINANT_PROPORTION:
             return f'F.max({share}).alias("{alias}")'
         if metric == DistributionalMetric.MODE:
-            return f'F.first(F.col("{cat_col}"), ignorenulls=True).alias("{alias}")'
+            return f'F.max_by(F.col("{cat_col}"), {cv}).alias("{alias}")'
         if metric == DistributionalMetric.COUNT:
             return f'F.count(F.when({cv} > 0, F.lit(1))).alias("{alias}")'
         raise ValueError(f"Unsupported distributional metric: {metric}")
@@ -246,20 +279,30 @@ class PySparkCodeGenerator(AbstractCodeGenerator):
     # ------------------------------------------------------------------
 
     def build_layer3(self, pipeline: FeatureStorePipeline) -> CodeOutput:
-        """Generate the Layer 3 temporal features DataFrame."""
+        """Generate the Layer 3 temporal features DataFrame.
+
+        Joins the MOB reference table (``ts_analysis``, ``ts_relative``, ``mob``)
+        with Layer 2A on ``mob.ts_relative == l2a.ts``, then uses
+        ``groupBy(ids + [ts_analysis])`` with ``F.when(mob.between(lo, hi), col)``
+        aggregates to implement each temporal operator — no window functions.
+        """
         ds = pipeline.config.dataset
         id_cols = [f.name for f in ds.id_fields]
+        time_col = ds.time_field.name
         tbl = self._tbl(pipeline, "layer3")
         mob_tbl = self._tbl(pipeline, "mob_ref")
         l2a_tbl = self._tbl(pipeline, "layer2a")
         l2b_tbl = self._tbl(pipeline, "layer2b")
 
-        id_cols_str = ", ".join(f'"{c}"' for c in id_cols)
-        id_time_join = ", ".join(f'"{c}"' for c in id_cols + [ds.time_field.name])
+        time_analysis = f"{time_col}_analysis"
+        time_relative = f"{time_col}_relative"
+
+        id_time_group = ", ".join(f'"{c}"' for c in id_cols + [time_analysis])
+        id_time_join = ", ".join(f'"{c}"' for c in id_cols + [time_col])
 
         feat_exprs: list[str] = []
         for feat in pipeline.layer3:
-            expr = self._temporal_pyspark_expr(feat, id_cols)
+            expr = self._temporal_pyspark_expr(feat)
             feat_exprs.append(f"    {expr}")
 
         feat_list = ",\n".join(feat_exprs)
@@ -271,86 +314,85 @@ class PySparkCodeGenerator(AbstractCodeGenerator):
             else ""
         )
 
+        if feat_exprs:
+            agg_block = (
+                f"layer3 = l3_df.groupBy({id_time_group}).agg(\n"
+                f"{feat_list},\n"
+                f').withColumnRenamed("{time_analysis}", "{time_col}")\n'
+            )
+        else:
+            agg_block = (
+                f"layer3 = l3_df.select({id_time_group}).distinct()"
+                f'.withColumnRenamed("{time_analysis}", "{time_col}")\n'
+            )
+
         code = (
             f"# --- Layer 3: temporal features ---\n"
             f"_mob = spark.read.table({mob_tbl!r})\n"
             f"_l2a = spark.read.table({l2a_tbl!r})\n"
-            f'l3_df = _mob.join(_l2a, on=[{id_time_join}], how="left")'
-            f"{l2b_join}\n"
-            f"layer3 = l3_df.select(\n"
-            f"    *[{id_cols_str}],\n"
-            f'    "{ds.time_field.name}",\n'
-            f'    "mob",\n'
-            f"{feat_list},\n"
-            f")\n"
-            f"layer3.write.mode('overwrite').saveAsTable({tbl!r})\n"
+            f'l3_df = _mob.join(_l2a, _mob["{time_relative}"] == _l2a["{time_col}"], "inner")'
+            f"{l2b_join}\n" + agg_block + f"layer3.write.mode('overwrite').saveAsTable({tbl!r})\n"
         )
         return PySparkOutput(code=code)
 
-    def _temporal_pyspark_expr(self, feat: TemporalFeature, id_cols: list[str]) -> str:
-        """Return a PySpark column expression string for one temporal feature."""
-        from featkit.layer2.distributional import DistributionalColumn
+    def _temporal_pyspark_expr(self, feat: TemporalFeature) -> str:
+        """Return a PySpark groupBy-compatible agg expression for one temporal feature.
 
+        Produces ``F.agg(F.when(F.col("mob").between(lo, hi), col))`` style
+        expressions so that they can be passed directly to ``.agg()`` after
+        a ``groupBy(ids + [ts_analysis])`` call.
+        """
         src_col = feat.source.column_name
-        col_ref = (
-            f'F.col("{src_col}")'
-            if not isinstance(feat.source, DistributionalColumn)
-            else f'F.col("{src_col}")'
-        )
+        col_ref = f'F.col("{src_col}")'
         alias = feat.column_name
         op = feat.operator
         w = feat.window_size
         bwd = feat.direction == TimeWindowDirection.BACKWARD
-
-        id_partition = ", ".join(f'"{c}"' for c in id_cols)
-        base_window = f'Window.partitionBy({id_partition}).orderBy("mob")'
+        mob = 'F.col("mob")'
 
         if w is not None:
-            prec = w - 1
-            if bwd:
-                frame_w = f"{base_window}.rowsBetween(-{prec}, 0)"
-            else:
-                frame_w = f"{base_window}.rowsBetween(0, {prec})"
+            lo, hi = (-(w - 1), 0) if bwd else (0, w - 1)
+            in_window = f"{mob}.between({lo}, {hi})"
+            case_col = f"F.when({in_window}, {col_ref})"
 
         if op == TemporalOperator.PROM_U:
-            return f'F.avg({col_ref}).over({frame_w}).alias("{alias}")'
+            return f'F.avg({case_col}).alias("{alias}")'
         if op == TemporalOperator.PROM_P:
-            return f'F.avg({col_ref}).over({frame_w}).alias("{alias}")'
+            return f'F.avg({case_col}).alias("{alias}")'
         if op == TemporalOperator.SUM_U:
-            return f'F.sum({col_ref}).over({frame_w}).alias("{alias}")'
+            return f'F.sum({case_col}).alias("{alias}")'
         if op == TemporalOperator.SUM_P:
-            return f'F.sum({col_ref}).over({frame_w}).alias("{alias}")'
+            return f'F.sum({case_col}).alias("{alias}")'
         if op == TemporalOperator.MIN_U:
-            return f'F.min({col_ref}).over({frame_w}).alias("{alias}")'
+            return f'F.min({case_col}).alias("{alias}")'
         if op == TemporalOperator.MAX_U:
-            return f'F.max({col_ref}).over({frame_w}).alias("{alias}")'
+            return f'F.max({case_col}).alias("{alias}")'
         if op == TemporalOperator.ULT_MES:
-            return f'{col_ref}.alias("{alias}")'
+            return f'F.max(F.when({mob} == 0, {col_ref})).alias("{alias}")'
         if op == TemporalOperator.PREV_MES:
-            return f'F.lag({col_ref}, 1).over({base_window}).alias("{alias}")'
+            return f'F.max(F.when({mob} == -1, {col_ref})).alias("{alias}")'
         if op == TemporalOperator.CREC:
-            prev = f"F.lag({col_ref}, 1).over({base_window})"
-            return f'(({col_ref} - {prev}) / F.when({prev} != 0, {prev})).alias("{alias}")'
+            curr = f"F.max(F.when({mob} == 0, {col_ref}))"
+            prev = f"F.max(F.when({mob} == -1, {col_ref}))"
+            return (
+                f"({curr} / F.when({prev} != 0, {prev}).otherwise(F.lit(None))"
+                f' - F.lit(1)).alias("{alias}")'
+            )
         if op == TemporalOperator.FREQ:
             return (
-                f"F.sum(F.when({col_ref}.isNotNull(), F.lit(1)).otherwise(F.lit(0)))"
-                f'.over({frame_w}).alias("{alias}")'
+                f'F.count(F.when({in_window} & {col_ref}.isNotNull(), F.lit(1))).alias("{alias}")'
             )
         if op == TemporalOperator.XM:
             return (
-                f"F.sum(F.when({col_ref}.isNotNull(), F.lit(1)).otherwise(F.lit(0)))"
-                f'.over({frame_w}).alias("{alias}")'
+                f'F.count(F.when({in_window} & {col_ref}.isNotNull(), F.lit(1))).alias("{alias}")'
             )
         if op == TemporalOperator.REC:
-            return (
-                f'(F.col("mob") - F.max(F.when({col_ref}.isNotNull(), F.col("mob")))'
-                f'.over({base_window})).alias("{alias}")'
-            )
+            return f'(-F.max(F.when({col_ref}.isNotNull(), {mob}))).alias("{alias}")'
         if op == TemporalOperator.MEDIA_ABS:
-            return f'F.percentile_approx({col_ref}, 0.5).over({frame_w}).alias("{alias}")'
+            return f'F.percentile_approx({case_col}, F.lit(0.5)).alias("{alias}")'
         if op == TemporalOperator.RATIO:
-            return f'F.sum({col_ref}).over({frame_w}).alias("{alias}")'
-        return f'{col_ref}.alias("{alias}")'
+            return f'F.sum({case_col}).alias("{alias}")'
+        return f'F.max(F.when({mob} == 0, {col_ref})).alias("{alias}")'
 
     # ------------------------------------------------------------------
     # build_final_join
@@ -393,18 +435,14 @@ class PySparkCodeGenerator(AbstractCodeGenerator):
     # Override generate() to emit the header once
     # ------------------------------------------------------------------
 
-    def generate(self, pipeline: FeatureStorePipeline) -> object:
+    def generate(self, pipeline: FeatureStorePipeline) -> FeatureStoreOutput:
         """Orchestrate all build steps and prepend the PySpark import header."""
-        from featkit.generators.output import FeatureStoreOutput
-
         result = super().generate(pipeline)
         assert isinstance(result, FeatureStoreOutput)
-        from featkit.generators.output import PySparkOutput as _PS
-
-        assert isinstance(result.code, _PS)
+        assert isinstance(result.code, PySparkOutput)
         full_code = _HEADER + "\n" + result.code.code
         return FeatureStoreOutput(
-            code=_PS(code=full_code),
+            code=PySparkOutput(code=full_code),
             dag=result.dag,
             mermaid=result.mermaid,
         )
