@@ -8,6 +8,7 @@ from featkit.builders.distributional_space import DistributionalSpaceBuilder
 from featkit.builders.pivot_space import PivotSpaceBuilder
 from featkit.builders.temporal_space import TemporalSpaceBuilder
 from featkit.config import FeatureStoreConfig
+from featkit.execution.domain_resolver import AdapterDomainResolver
 from featkit.layer2.distributional import DistributionalColumn
 from featkit.layer2.pivoted import PivotedColumn
 from featkit.layer3.temporal_feature import TemporalFeature
@@ -42,10 +43,18 @@ class FeatureStorePipeline:
         results with an identical fresh computation.
         """
         cfg = self.config
+
+        domain_resolver = (
+            AdapterDomainResolver(cfg.adapter, cfg.dataset.source_reference)
+            if cfg.adapter is not None
+            else None
+        )
+
         self.layer2a = PivotSpaceBuilder(
             dataset=cfg.dataset,
             include_marginals=cfg.include_marginals,
             aggregators_override=cfg.aggregators_override,
+            domain_resolver=domain_resolver,
         ).build()
         self.layer2b = DistributionalSpaceBuilder(
             dataset=cfg.dataset,

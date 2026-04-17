@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from featkit.dataset.base import AbstractDataset
 from featkit.enums import Layer2Aggregator, Layer2OutputType, MeasurementType, TemporalOperator
+
+if TYPE_CHECKING:
+    from featkit.execution.adapters.base import DataSourceAdapter
 
 
 @dataclass
@@ -26,6 +30,10 @@ class FeatureStoreConfig:
             aggregators. Only contract-valid aggregators are used.
         operators_override: Per-output-type override for temporal operators.
             Only contract-valid operators are used.
+        adapter: Optional execution adapter.  When provided, categorical fields
+            with no ``allowed_values`` have their domain resolved at
+            ``FeatureStorePipeline.build()`` time via a ``SELECT DISTINCT``
+            query against the facts table.
     """
 
     dataset: AbstractDataset
@@ -36,3 +44,4 @@ class FeatureStoreConfig:
     include_marginals: bool = True
     aggregators_override: dict[MeasurementType, list[Layer2Aggregator]] | None = None
     operators_override: dict[Layer2OutputType, list[TemporalOperator]] | None = field(default=None)
+    adapter: DataSourceAdapter | None = None
