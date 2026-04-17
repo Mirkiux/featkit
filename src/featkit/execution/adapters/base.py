@@ -42,7 +42,7 @@ class DataSourceAdapter(ABC):
         try:
             return self.engine_execute(sql)
         except Exception:
-            _log.error(
+            _log.exception(
                 "SQL execution failed on %s.\nFailed query:\n%s",
                 self.__class__.__name__,
                 sql,

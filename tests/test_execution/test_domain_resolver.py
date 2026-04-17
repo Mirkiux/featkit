@@ -31,6 +31,37 @@ def _mock_adapter(field_name: str, values: list[str]) -> MockAdapter:
 # ---------------------------------------------------------------------------
 
 
+class TestIdentifierValidation:
+    def test_invalid_source_reference_raises(self) -> None:
+        adapter = MockAdapter({})
+        with pytest.raises(ValueError, match="source_reference"):
+            AdapterDomainResolver(adapter, "mydb; DROP TABLE facts--")
+
+    def test_source_reference_with_spaces_raises(self) -> None:
+        adapter = MockAdapter({})
+        with pytest.raises(ValueError, match="source_reference"):
+            AdapterDomainResolver(adapter, "my db.facts")
+
+    def test_valid_dotted_source_reference_accepted(self) -> None:
+        adapter = _mock_adapter("segment", ["a"])
+        # Should not raise
+        AdapterDomainResolver(adapter, "catalog.db.schema.table")
+
+    def test_invalid_field_name_raises(self) -> None:
+        adapter = MockAdapter({})
+        resolver = AdapterDomainResolver(adapter, _SOURCE)
+        bad_field = CategoricalField("bad; DROP TABLE--", CategoricalTreatment.PIVOT)
+        with pytest.raises(ValueError, match="field.name"):
+            resolver(bad_field)
+
+    def test_field_name_with_spaces_raises(self) -> None:
+        adapter = MockAdapter({})
+        resolver = AdapterDomainResolver(adapter, _SOURCE)
+        bad_field = CategoricalField("bad field", CategoricalTreatment.PIVOT)
+        with pytest.raises(ValueError, match="field.name"):
+            resolver(bad_field)
+
+
 class TestAdapterDomainResolver:
     def test_returns_list_of_strings(self) -> None:
         adapter = _mock_adapter("segment", ["retail", "sme", "corporate"])

@@ -50,7 +50,9 @@ class TestMockAdapter:
         adapter = MockAdapter({})
         assert isinstance(adapter, DataSourceAdapter)
 
-    def test_execute_logs_and_reraises_on_failure(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_execute_logs_with_traceback_and_reraises_on_failure(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         import logging
 
         adapter = MockAdapter({})
@@ -58,6 +60,8 @@ class TestMockAdapter:
         with level_ctx, pytest.raises(KeyError):
             adapter.execute("bad sql")
         assert "bad sql" in caplog.text
+        # _log.exception() includes exc_info; caplog captures the exception tuple
+        assert caplog.records[0].exc_info is not None
 
 
 # ---------------------------------------------------------------------------

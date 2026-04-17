@@ -12,7 +12,8 @@ class MockAdapter(DataSourceAdapter):
 
     Accepts a dict mapping SQL strings to pre-built DataFrames.
     Raises ``KeyError`` when an unregistered SQL string is executed.
-    Has no external dependencies.
+    Has no external *engine* dependencies (no database connector required);
+    ``pandas`` is still needed as it is the shared return type of all adapters.
 
     Each call to :meth:`execute` increments an internal counter so tests can
     verify how many times a query was executed.
