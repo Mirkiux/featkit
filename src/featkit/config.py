@@ -34,6 +34,10 @@ class FeatureStoreConfig:
             with no ``allowed_values`` have their domain resolved at
             ``FeatureStorePipeline.build()`` time via a ``SELECT DISTINCT``
             query against the facts table.
+        verbose: When ``True``, the space builders emit ``DEBUG``-level log
+            messages at key milestones: builder start/end, ``domain_resolver``
+            invocations (PivotSpaceBuilder only), and each generated column name
+            together with the combination that produced it.
     """
 
     dataset: AbstractDataset
@@ -45,3 +49,4 @@ class FeatureStoreConfig:
     aggregators_override: dict[MeasurementType, list[Layer2Aggregator]] | None = None
     operators_override: dict[Layer2OutputType, list[TemporalOperator]] | None = field(default=None)
     adapter: DataSourceAdapter | None = None
+    verbose: bool = False

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from itertools import product
 from typing import cast
@@ -12,6 +13,8 @@ from featkit.enums import CategoricalTreatment, Layer2Aggregator, MeasurementTyp
 from featkit.fields.categorical_field import CategoricalField
 from featkit.fields.measurement_field import MeasurementField
 from featkit.layer2.pivoted import PivotedColumn
+
+_log = logging.getLogger(__name__)
 
 
 class PivotSpaceBuilder:
@@ -35,14 +38,19 @@ class PivotSpaceBuilder:
         include_marginals: bool = True,
         aggregators_override: dict[MeasurementType, list[Layer2Aggregator]] | None = None,
         domain_resolver: Callable[[CategoricalField], list[str]] | None = None,
+        verbose: bool = False,
     ) -> None:
         self.dataset = dataset
         self.include_marginals = include_marginals
         self.aggregators_override = aggregators_override
         self.domain_resolver = domain_resolver
+        self.verbose = verbose
 
     def build(self) -> list[PivotedColumn]:
         """Build and return all PivotedColumn objects."""
+        if self.verbose:
+            _log.debug("PivotSpaceBuilder.build() started")
+
         all_cats = [cast(CategoricalField, f) for f in self.dataset.categorical_fields]
         pivot_cats = [
             c
@@ -55,7 +63,16 @@ class PivotSpaceBuilder:
             if cat.allowed_values is not None:
                 raw: list[str] = list(cat.allowed_values)
             elif self.domain_resolver is not None:
+                if self.verbose:
+                    _log.debug("domain_resolver: resolving domain for categorical %r", cat.name)
                 raw = list(self.domain_resolver(cat))
+                if self.verbose:
+                    _log.debug(
+                        "domain_resolver: resolved %d value(s) for %r: %s",
+                        len(raw),
+                        cat.name,
+                        raw,
+                    )
             else:
                 raise ValueError(
                     f"CategoricalField {cat.name!r} has no allowed_values and no "
@@ -81,6 +98,12 @@ class PivotSpaceBuilder:
 
         for combo in combos:
             cat_combination = {cats[i]: combo[i] for i in range(len(cats))} if cats else {}
+            if self.verbose:
+                _log.debug("combo: %s", combo)
+                _log.debug(
+                    "cat_combination: %s",
+                    {c.name: v for c, v in cat_combination.items()},
+                )
             for mf in measurements:
                 for agg in self._valid_aggregators(mf):
                     col = PivotedColumn(mf, agg, cat_combination)
@@ -89,9 +112,13 @@ class PivotSpaceBuilder:
                             f"Duplicate pivot column name generated: {col.column_name!r}. "
                             f"Conflicting columns: {seen[col.column_name]!r} and {col!r}"
                         )
+                    if self.verbose:
+                        _log.debug("column_name: %r", col.column_name)
                     seen[col.column_name] = col
                     results.append(col)
 
+        if self.verbose:
+            _log.debug("PivotSpaceBuilder.build() done \u2014 %d column(s) generated", len(results))
         return results
 
     def _valid_aggregators(self, mf: MeasurementField) -> list[Layer2Aggregator]:
