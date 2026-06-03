@@ -6,3 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.2.0] - 2026-06-02
+
+### Added
+- Execution layer with adapter-based domain resolution (`feat(execution)`)
+
+### Fixed
+- Lazy-import `AdapterDomainResolver`; added `pandas` to dev dependencies
