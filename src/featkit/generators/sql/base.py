@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from abc import abstractmethod
 from collections import defaultdict
@@ -18,6 +19,8 @@ if TYPE_CHECKING:
     from featkit.layer2.distributional import DistributionalColumn
     from featkit.layer3.temporal_feature import TemporalFeature
     from featkit.pipeline import FeatureStorePipeline
+
+_log = logging.getLogger(__name__)
 
 
 class AbstractSQLCodeGenerator(AbstractCodeGenerator):
@@ -116,6 +119,10 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         The resulting table has columns:
         ``{time_col}_analysis``, ``{time_col}_relative``, ``mob``.
         """
+        verbose = pipeline.config.verbose
+        if verbose:
+            _log.debug("build_mob_table started")
+
         ds = pipeline.config.dataset
         time_col = ds.time_field.name
         src = ds.source_reference
@@ -142,7 +149,12 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
             f"FROM periodos_ordenados a\n"
             f"LEFT JOIN periodos_ordenados b ON 1 = 1"
         )
-        return SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
+        if verbose:
+            _log.debug("build_mob_table base SQL:\n%s", sql)
+        result = SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
+        if verbose:
+            _log.debug("build_mob_table done")
+        return result
 
     # ------------------------------------------------------------------
     # build_layer2a
@@ -156,6 +168,10 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         SQL injection in the generated script.  Column identifiers are
         double-quoted via :meth:`_quoted_id`.
         """
+        verbose = pipeline.config.verbose
+        if verbose:
+            _log.debug("build_layer2a started")
+
         ds = pipeline.config.dataset
         id_cols = [f.name for f in ds.id_fields]
         time_col = ds.time_field.name
@@ -194,7 +210,12 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
             f"FROM {src}\n"
             f"GROUP BY {group_cols}"
         )
-        return SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
+        if verbose:
+            _log.debug("build_layer2a base SQL:\n%s", sql)
+        result = SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
+        if verbose:
+            _log.debug("build_layer2a done")
+        return result
 
     # ------------------------------------------------------------------
     # build_layer2b
@@ -222,7 +243,13 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         CTE names are sanitised via :meth:`_safe_cte_name` to handle field
         names that contain special characters.
         """
+        verbose = pipeline.config.verbose
+        if verbose:
+            _log.debug("build_layer2b started")
+
         if not pipeline.layer2b:
+            if verbose:
+                _log.debug("build_layer2b done — no distributional columns, step skipped")
             return SQLOutput(sql="", dialect=self.dialect)
 
         ds = pipeline.config.dataset
@@ -308,7 +335,12 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
             f"FROM base b\n"
             f"{joins}"
         )
-        return SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
+        if verbose:
+            _log.debug("build_layer2b base SQL:\n%s", sql)
+        result = SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
+        if verbose:
+            _log.debug("build_layer2b done")
+        return result
 
     def _distributional_expr(self, metric: DistributionalMetric, cat_col: str, alias: str) -> str:
         """Return a SQL aggregate expression for one distributional metric.
@@ -350,6 +382,10 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         ``l2a.{time_col} = mob.{time_col}_relative`` so that the correct
         relative-period values are aggregated for each analysis snapshot.
         """
+        verbose = pipeline.config.verbose
+        if verbose:
+            _log.debug("build_layer3 started")
+
         ds = pipeline.config.dataset
         id_cols = [f.name for f in ds.id_fields]
         time_col = ds.time_field.name
@@ -388,7 +424,12 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
             f"{l2b_join}\n"
             f"GROUP BY {group_by}"
         )
-        return SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
+        if verbose:
+            _log.debug("build_layer3 base SQL:\n%s", sql)
+        result = SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
+        if verbose:
+            _log.debug("build_layer3 done")
+        return result
 
     def _temporal_expr(self, feat: TemporalFeature, mob_col: str = "mob.mob") -> str:
         """Return a GROUP BY-compatible aggregate expression for one temporal feature.
@@ -456,6 +497,10 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
 
     def build_final_join(self, pipeline: FeatureStorePipeline) -> SQLOutput:
         """Generate the final feature table joining Layer 2 and Layer 3."""
+        verbose = pipeline.config.verbose
+        if verbose:
+            _log.debug("build_final_join started")
+
         ds = pipeline.config.dataset
         id_cols = [f.name for f in ds.id_fields]
         time_col = ds.time_field.name
@@ -493,4 +538,9 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
             f"{l2b_join}"
             f"{l3_join}"
         )
-        return SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
+        if verbose:
+            _log.debug("build_final_join base SQL:\n%s", sql)
+        result = SQLOutput(sql=self._transpile(sql), dialect=self.dialect)
+        if verbose:
+            _log.debug("build_final_join done")
+        return result
