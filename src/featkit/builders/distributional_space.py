@@ -29,6 +29,10 @@ class DistributionalSpaceBuilder:
             An empty list produces no columns. Every entry must be present in the
             dataset (compared by name, type, and contract); a ``ValueError`` is
             raised for unknown fields.
+        verbose: When ``True``, emits ``DEBUG``-level log messages at key
+            milestones: builder start/end, and for each generated column the
+            ``(categorical, measurement, aggregator, metric)`` combination dict
+            and the resulting column name.
     """
 
     def __init__(

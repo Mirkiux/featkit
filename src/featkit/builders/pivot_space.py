@@ -30,6 +30,10 @@ class PivotSpaceBuilder:
         domain_resolver: Callable invoked to resolve the domain of a categorical
             whose ``allowed_values`` is None. Must return a list of string values.
             Raises ``ValueError`` at build time if not provided for such a field.
+        verbose: When ``True``, emits ``DEBUG``-level log messages at key
+            milestones: builder start/end, each ``domain_resolver`` invocation
+            with its resolved values, each combo tuple and the resulting
+            ``cat_combination`` dict, and every generated column name.
     """
 
     def __init__(

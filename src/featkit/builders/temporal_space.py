@@ -36,6 +36,10 @@ class TemporalSpaceBuilder:
         direction: Sliding-window direction applied to every feature.
         operators_override: Per-output-type override. Only operators that are
             also contract-valid for the column's output type are used.
+        verbose: When ``True``, emits ``DEBUG``-level log messages at key
+            milestones: builder start/end, and for each generated feature the
+            ``(layer2_column, operator, window)`` combination dict and the
+            resulting column name.
     """
 
     def __init__(

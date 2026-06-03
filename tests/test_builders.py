@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 
 from featkit.builders.distributional_space import DistributionalSpaceBuilder
@@ -606,3 +608,141 @@ class TestTemporalSpaceBuilderDirection:
     def test_default_direction_is_backward(self) -> None:
         feats = TemporalSpaceBuilder(layer2_columns=[_numeric_col()], time_windows=[3]).build()
         assert all(f.direction == _BWD for f in feats)
+
+
+# ---------------------------------------------------------------------------
+# Verbose logging
+# ---------------------------------------------------------------------------
+
+_PIVOT_LOGGER = "featkit.builders.pivot_space"
+_DIST_LOGGER = "featkit.builders.distributional_space"
+_TEMP_LOGGER = "featkit.builders.temporal_space"
+
+
+class TestPivotSpaceBuilderVerbose:
+    def _ds(self) -> SimpleDataset:
+        return SimpleDataset(
+            "tbl",
+            [
+                _id(),
+                _ts(),
+                _mto(),
+                CategoricalField("sector", CategoricalTreatment.PIVOT, allowed_values=["A", "B"]),
+            ],
+        )
+
+    def test_verbose_true_emits_start_and_end(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_PIVOT_LOGGER):
+            PivotSpaceBuilder(dataset=self._ds(), verbose=True).build()
+        assert "PivotSpaceBuilder.build() started" in caplog.text
+        assert "PivotSpaceBuilder.build() done" in caplog.text
+
+    def test_verbose_true_emits_combo_and_cat_combination(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_PIVOT_LOGGER):
+            PivotSpaceBuilder(dataset=self._ds(), verbose=True).build()
+        assert "combo:" in caplog.text
+        assert "cat_combination:" in caplog.text
+
+    def test_verbose_true_emits_column_name(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_PIVOT_LOGGER):
+            PivotSpaceBuilder(dataset=self._ds(), verbose=True).build()
+        assert "column_name:" in caplog.text
+
+    def test_verbose_true_emits_domain_resolver_logs(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        def resolver(cat: CategoricalField) -> list[str]:
+            return ["X", "Y"]
+
+        ds = SimpleDataset(
+            "tbl", [_id(), _ts(), _mto(), CategoricalField("region", CategoricalTreatment.PIVOT)]
+        )
+        with caplog.at_level(logging.DEBUG, logger=_PIVOT_LOGGER):
+            PivotSpaceBuilder(dataset=ds, domain_resolver=resolver, verbose=True).build()
+        assert "domain_resolver: resolving domain for categorical 'region'" in caplog.text
+        assert "domain_resolver: resolved 2 value(s) for 'region'" in caplog.text
+
+    def test_verbose_false_emits_no_logs(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_PIVOT_LOGGER):
+            PivotSpaceBuilder(dataset=self._ds(), verbose=False).build()
+        pivot_records = [r for r in caplog.records if r.name == _PIVOT_LOGGER]
+        assert pivot_records == []
+
+
+class TestDistributionalSpaceBuilderVerbose:
+    def _ds(self) -> SimpleDataset:
+        return SimpleDataset(
+            "tbl",
+            [
+                _id(),
+                _ts(),
+                _mto(),
+                CategoricalField(
+                    "sector",
+                    CategoricalTreatment.DISTRIBUTIONAL,
+                    distributional_metrics=[DistributionalMetric.ENTROPY],
+                ),
+            ],
+        )
+
+    def test_verbose_true_emits_start_and_end(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_DIST_LOGGER):
+            DistributionalSpaceBuilder(dataset=self._ds(), verbose=True).build()
+        assert "DistributionalSpaceBuilder.build() started" in caplog.text
+        assert "DistributionalSpaceBuilder.build() done" in caplog.text
+
+    def test_verbose_true_emits_combo_and_combination(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_DIST_LOGGER):
+            DistributionalSpaceBuilder(dataset=self._ds(), verbose=True).build()
+        assert "combo: cat=" in caplog.text
+        assert "combination:" in caplog.text
+
+    def test_verbose_true_emits_column_name(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_DIST_LOGGER):
+            DistributionalSpaceBuilder(dataset=self._ds(), verbose=True).build()
+        assert "column_name:" in caplog.text
+
+    def test_verbose_false_emits_no_logs(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_DIST_LOGGER):
+            DistributionalSpaceBuilder(dataset=self._ds(), verbose=False).build()
+        dist_records = [r for r in caplog.records if r.name == _DIST_LOGGER]
+        assert dist_records == []
+
+
+class TestTemporalSpaceBuilderVerbose:
+    def test_verbose_true_emits_start_and_end(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_TEMP_LOGGER):
+            TemporalSpaceBuilder(
+                layer2_columns=[_numeric_col()], time_windows=[3], verbose=True
+            ).build()
+        assert "TemporalSpaceBuilder.build() started" in caplog.text
+        assert "TemporalSpaceBuilder.build() done" in caplog.text
+
+    def test_verbose_true_emits_combo_and_combination(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_TEMP_LOGGER):
+            TemporalSpaceBuilder(
+                layer2_columns=[_numeric_col()], time_windows=[3], verbose=True
+            ).build()
+        assert "combo: layer2_column=" in caplog.text
+        assert "combination:" in caplog.text
+
+    def test_verbose_true_emits_column_name(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_TEMP_LOGGER):
+            TemporalSpaceBuilder(
+                layer2_columns=[_numeric_col()], time_windows=[3], verbose=True
+            ).build()
+        assert "column_name:" in caplog.text
+
+    def test_verbose_false_emits_no_logs(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.DEBUG, logger=_TEMP_LOGGER):
+            TemporalSpaceBuilder(
+                layer2_columns=[_numeric_col()], time_windows=[3], verbose=False
+            ).build()
+        temp_records = [r for r in caplog.records if r.name == _TEMP_LOGGER]
+        assert temp_records == []
