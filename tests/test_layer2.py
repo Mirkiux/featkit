@@ -286,7 +286,25 @@ class TestPivotedColumnName:
         self, monto: MeasurementField, channel: CategoricalField
     ) -> None:
         col = PivotedColumn(monto, Layer2Aggregator.SUM, {channel: None})
-        assert col.column_name == "SUM__amount__channel"
+        assert col.column_name == "SUM__amount"
+
+    def test_multiple_categoricals_one_marginal(
+        self,
+        monto: MeasurementField,
+        channel: CategoricalField,
+        region: CategoricalField,
+    ) -> None:
+        col = PivotedColumn(monto, Layer2Aggregator.SUM, {channel: None, region: "north"})
+        assert col.column_name == "SUM__amount__region_north"
+
+    def test_multiple_categoricals_all_marginals(
+        self,
+        monto: MeasurementField,
+        channel: CategoricalField,
+        region: CategoricalField,
+    ) -> None:
+        col = PivotedColumn(monto, Layer2Aggregator.SUM, {channel: None, region: None})
+        assert col.column_name == "SUM__amount"
 
     def test_multiple_categoricals_sorted_alphabetically(
         self,
