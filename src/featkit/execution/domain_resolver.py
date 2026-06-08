@@ -163,4 +163,8 @@ class AdapterCombinationResolver:
             f"ORDER BY {order_list}"
         )
         df = self._adapter.execute(sql)
-        return [{f: str(row[f.name]) for f in fields} for _, row in df.iterrows()]
+        if df.empty:
+            return []
+        df = df.astype(str)
+        records = df.to_dict(orient="records")
+        return [{f: rec[f.name] for f in fields} for rec in records]
