@@ -152,8 +152,14 @@ class AdapterCombinationResolver:
 
         where_parts: list[str] = [f"{f.name} IS NOT NULL" for f in sorted_fields]
         for f in sorted_fields:
-            if f.allowed_values:
-                escaped = ", ".join("'" + v.replace("'", "''") + "'" for v in f.allowed_values)
+            if f.allowed_values is not None:
+                if len(f.allowed_values) == 0:
+                    return []
+                if any(v is None for v in f.allowed_values):
+                    raise ValueError(
+                        f"CategoricalField {f.name!r}: allowed_values contains None; None is reserved as the ∅ marginal sentinel"
+                    )
+                escaped = ", ".join("'" + str(v).replace("'", "''") + "'" for v in f.allowed_values)
                 where_parts.append(f"{f.name} IN ({escaped})")
 
         sql = (
