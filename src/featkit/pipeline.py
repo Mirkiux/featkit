@@ -43,17 +43,19 @@ class FeatureStorePipeline:
         """
         cfg = self.config
 
-        domain_resolver = None
+        combination_resolver = None
         if cfg.adapter is not None:
-            from featkit.execution.domain_resolver import AdapterDomainResolver
+            from featkit.execution.domain_resolver import AdapterCombinationResolver
 
-            domain_resolver = AdapterDomainResolver(cfg.adapter, cfg.dataset.source_reference)
+            combination_resolver = AdapterCombinationResolver(
+                cfg.adapter, cfg.dataset.source_reference
+            )
 
         self.layer2a = PivotSpaceBuilder(
             dataset=cfg.dataset,
             include_marginals=cfg.include_marginals,
             aggregators_override=cfg.aggregators_override,
-            domain_resolver=domain_resolver,
+            combination_resolver=combination_resolver,
             verbose=cfg.verbose,
         ).build()
         self.layer2b = DistributionalSpaceBuilder(
