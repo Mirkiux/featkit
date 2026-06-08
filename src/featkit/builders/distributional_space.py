@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import cast
 
 from featkit.contracts.measurement.defaults import get_default_contract
@@ -10,6 +11,8 @@ from featkit.enums import CategoricalTreatment
 from featkit.fields.categorical_field import CategoricalField
 from featkit.fields.measurement_field import MeasurementField
 from featkit.layer2.distributional import DistributionalColumn
+
+_log = logging.getLogger(__name__)
 
 
 class DistributionalSpaceBuilder:
@@ -26,18 +29,27 @@ class DistributionalSpaceBuilder:
             An empty list produces no columns. Every entry must be present in the
             dataset (compared by name, type, and contract); a ``ValueError`` is
             raised for unknown fields.
+        verbose: When ``True``, emits ``DEBUG``-level log messages at key
+            milestones: builder start/end, and for each generated column the
+            ``(categorical, measurement, aggregator, metric)`` combination dict
+            and the resulting column name.
     """
 
     def __init__(
         self,
         dataset: AbstractDataset,
         value_measurements: list[MeasurementField] | None = None,
+        verbose: bool = False,
     ) -> None:
         self.dataset = dataset
         self.value_measurements = value_measurements
+        self.verbose = verbose
 
     def build(self) -> list[DistributionalColumn]:
         """Build and return all DistributionalColumn objects."""
+        if self.verbose:
+            _log.debug("DistributionalSpaceBuilder.build() started")
+
         all_cats = [cast(CategoricalField, f) for f in self.dataset.categorical_fields]
         dist_cats = [
             c
@@ -70,8 +82,30 @@ class DistributionalSpaceBuilder:
                 for agg in aggs:
                     for metric in cat.distributional_metrics:
                         col = DistributionalColumn(mf, agg, cat, metric)
+                        if self.verbose:
+                            _log.debug(
+                                "combo: cat=%r, measurement=%r, aggregator=%s, metric=%s",
+                                cat.name,
+                                mf.name,
+                                agg.value,
+                                metric.value,
+                            )
+                            _log.debug(
+                                "combination: %s",
+                                {
+                                    "categorical": cat.name,
+                                    "measurement": mf.name,
+                                    "aggregator": agg.value,
+                                    "metric": metric.value,
+                                },
+                            )
+                            _log.debug("column_name: %r", col.column_name)
                         if col.column_name not in seen:
                             seen.add(col.column_name)
                             results.append(col)
 
+        if self.verbose:
+            _log.debug(
+                "DistributionalSpaceBuilder.build() done — %d column(s) generated", len(results)
+            )
         return results

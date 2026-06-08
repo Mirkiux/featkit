@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 
 from featkit.enums import Layer2OutputType, TemporalOperator, TimeWindowDirection
 from featkit.layer2.base import AbstractLayer2Column
 from featkit.layer3.temporal_feature import _POINT_IN_TIME_OPERATORS, TemporalFeature
+
+_log = logging.getLogger(__name__)
 
 #: Operators that require composed (MEDIA_ABS / RATIO) window sizes.
 _COMPOSED_OPERATORS: frozenset[TemporalOperator] = frozenset(
@@ -33,6 +36,10 @@ class TemporalSpaceBuilder:
         direction: Sliding-window direction applied to every feature.
         operators_override: Per-output-type override. Only operators that are
             also contract-valid for the column's output type are used.
+        verbose: When ``True``, emits ``DEBUG``-level log messages at key
+            milestones: builder start/end, and for each generated feature the
+            ``(layer2_column, operator, window)`` combination dict and the
+            resulting column name.
     """
 
     def __init__(
@@ -42,15 +49,20 @@ class TemporalSpaceBuilder:
         composed_windows: list[int] | None = None,
         direction: TimeWindowDirection = TimeWindowDirection.BACKWARD,
         operators_override: dict[Layer2OutputType, list[TemporalOperator]] | None = None,
+        verbose: bool = False,
     ) -> None:
         self.layer2_columns = layer2_columns
         self.time_windows = time_windows
         self.composed_windows = composed_windows
         self.direction = direction
         self.operators_override = operators_override
+        self.verbose = verbose
 
     def build(self) -> list[TemporalFeature]:
         """Build and return all TemporalFeature objects."""
+        if self.verbose:
+            _log.debug("TemporalSpaceBuilder.build() started")
+
         results: list[TemporalFeature] = []
         seen: set[str] = set()
 
@@ -79,8 +91,26 @@ class TemporalSpaceBuilder:
 
                 for ws in window_sizes:
                     feat = TemporalFeature(col, op, self.direction, window_size=ws)
+                    if self.verbose:
+                        _log.debug(
+                            "combo: layer2_column=%r, operator=%s, window=%s",
+                            col.column_name,
+                            op.value,
+                            ws,
+                        )
+                        _log.debug(
+                            "combination: %s",
+                            {
+                                "layer2_column": col.column_name,
+                                "operator": op.value,
+                                "window": ws,
+                            },
+                        )
+                        _log.debug("column_name: %r", feat.column_name)
                     if feat.column_name not in seen:
                         seen.add(feat.column_name)
                         results.append(feat)
 
+        if self.verbose:
+            _log.debug("TemporalSpaceBuilder.build() done — %d feature(s) generated", len(results))
         return results

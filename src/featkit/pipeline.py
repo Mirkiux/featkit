@@ -54,15 +54,18 @@ class FeatureStorePipeline:
             include_marginals=cfg.include_marginals,
             aggregators_override=cfg.aggregators_override,
             domain_resolver=domain_resolver,
+            verbose=cfg.verbose,
         ).build()
         self.layer2b = DistributionalSpaceBuilder(
             dataset=cfg.dataset,
+            verbose=cfg.verbose,
         ).build()
         self.layer3 = TemporalSpaceBuilder(
             layer2_columns=[*self.layer2a, *self.layer2b],
             time_windows=cfg.time_windows,
             composed_windows=cfg.composed_windows,
             operators_override=cfg.operators_override,
+            verbose=cfg.verbose,
         ).build()
         return self
 
