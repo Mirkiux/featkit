@@ -128,7 +128,20 @@ class PivotSpaceBuilder:
         all_combos: list[dict[CategoricalField, str | None]]
 
         if self.combination_resolver is not None and pivot_cats:
-            observed = self.combination_resolver(pivot_cats)
+            observed_raw = self.combination_resolver(pivot_cats)
+            pivot_key_set = set(pivot_cats)
+            pivot_map = {c: c for c in pivot_cats}
+            observed: list[dict[CategoricalField, str]] = []
+            for combo in observed_raw:
+                if set(combo.keys()) != pivot_key_set:
+                    raise ValueError(
+                        "combination_resolver must return dicts keyed by all pivot categorical fields"
+                    )
+                if any(v is None for v in combo.values()):
+                    raise ValueError(
+                        "combination_resolver returned None; None is reserved as the ∅ marginal sentinel"
+                    )
+                observed.append({pivot_map[f]: str(v) for f, v in combo.items()})
             if self.include_marginals:
                 all_combos = _with_marginals(observed, pivot_cats)
             else:
