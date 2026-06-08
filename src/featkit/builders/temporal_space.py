@@ -6,7 +6,7 @@ import logging
 from collections.abc import Sequence
 
 from featkit.enums import Layer2OutputType, TemporalOperator, TimeWindowDirection
-from featkit.layer2.base import AbstractLayer2Column
+from featkit.layer2.base import AbstractL2Column
 from featkit.layer3.temporal_feature import _POINT_IN_TIME_OPERATORS, TemporalFeature
 
 _log = logging.getLogger(__name__)
@@ -44,14 +44,14 @@ class TemporalSpaceBuilder:
 
     def __init__(
         self,
-        layer2_columns: list[AbstractLayer2Column],
+        layer2_columns: list[AbstractL2Column],
         time_windows: list[int],
         composed_windows: list[int] | None = None,
         direction: TimeWindowDirection = TimeWindowDirection.BACKWARD,
         operators_override: dict[Layer2OutputType, list[TemporalOperator]] | None = None,
         verbose: bool = False,
     ) -> None:
-        self.layer2_columns = layer2_columns
+        self.layer2_columns: list[AbstractL2Column] = layer2_columns
         self.time_windows = time_windows
         self.composed_windows = composed_windows
         self.direction = direction

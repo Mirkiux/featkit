@@ -18,16 +18,12 @@ if TYPE_CHECKING:
 COLUMN_NAME_SEP = "__"
 
 
-class AbstractLayer2Column(ABC):
-    """Common base for every column in the Layer 2 horizontal concept table.
+class AbstractL2Column(ABC):
+    """Minimal interface for any Layer 2 column.
 
-    Subclasses supply the concrete ``output_type`` and ``column_name``; this
-    class derives ``output_contract`` from ``output_type`` automatically.
-
-    Raises:
-        ValueError: If ``layer2_aggregator`` is not permitted by the
-            measurement's contract, or if ``source_measurement.name``
-            contains the column name separator.
+    All Layer 2 columns — whether pivot aggregations, distributional metrics,
+    or derived ratio columns — satisfy this interface.  :class:`TemporalFeature`
+    and :class:`TemporalSpaceBuilder` accept any subclass of this base.
     """
 
     @staticmethod
@@ -38,6 +34,37 @@ class AbstractLayer2Column(ABC):
                 f"{description} {value!r} must not contain the column name separator "
                 f"{COLUMN_NAME_SEP!r}"
             )
+
+    @property
+    @abstractmethod
+    def output_type(self) -> Layer2OutputType:
+        """Layer 2 output type that governs valid Layer 3 temporal operators."""
+        ...
+
+    @property
+    def output_contract(self) -> AbstractLayer2OutputContract:
+        """Contract for the Layer 2 → Layer 3 boundary, derived from ``output_type``."""
+        return get_default_output_contract(self.output_type)
+
+    @property
+    @abstractmethod
+    def column_name(self) -> str:
+        """Deterministic name for this column in the Layer 2 output table."""
+        ...
+
+
+class AbstractLayer2Column(AbstractL2Column):
+    """Base for Layer 2 columns derived from a single measurement + aggregator.
+
+    Subclasses supply the concrete ``output_type`` and ``column_name``; this
+    class derives ``output_contract`` from ``output_type`` automatically and
+    validates that the aggregator is permitted by the measurement's contract.
+
+    Raises:
+        ValueError: If ``layer2_aggregator`` is not permitted by the
+            measurement's contract, or if ``source_measurement.name``
+            contains the column name separator.
+    """
 
     def __init__(
         self,
@@ -59,23 +86,6 @@ class AbstractLayer2Column(ABC):
             )
         self.source_measurement = source_measurement
         self.layer2_aggregator = layer2_aggregator
-
-    @property
-    @abstractmethod
-    def output_type(self) -> Layer2OutputType:
-        """Layer 2 output type that governs valid Layer 3 temporal operators."""
-        ...
-
-    @property
-    def output_contract(self) -> AbstractLayer2OutputContract:
-        """Contract for the Layer 2 → Layer 3 boundary, derived from ``output_type``."""
-        return get_default_output_contract(self.output_type)
-
-    @property
-    @abstractmethod
-    def column_name(self) -> str:
-        """Deterministic name for this column in the Layer 2 output table."""
-        ...
 
     def __repr__(self) -> str:
         return (

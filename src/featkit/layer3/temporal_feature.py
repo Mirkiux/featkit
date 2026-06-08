@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from featkit.enums import TemporalOperator, TimeWindowDirection
-from featkit.layer2.base import AbstractLayer2Column
+from featkit.layer2.base import AbstractL2Column
 
 #: Operators that operate on a single point in time and do not require a window.
 _POINT_IN_TIME_OPERATORS: frozenset[TemporalOperator] = frozenset(
@@ -31,7 +31,7 @@ class TemporalFeature:
 
     def __init__(
         self,
-        source: AbstractLayer2Column,
+        source: AbstractL2Column,
         operator: TemporalOperator,
         direction: TimeWindowDirection,
         window_size: int | None = None,
@@ -64,7 +64,7 @@ class TemporalFeature:
         ):
             raise ValueError(f"window_size must be a positive integer, got {window_size!r}")
 
-        self.source = source
+        self.source: AbstractL2Column = source
         self.operator = operator
         self.direction = direction
         self.window_size = window_size

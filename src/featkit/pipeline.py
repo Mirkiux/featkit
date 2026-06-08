@@ -6,10 +6,12 @@ from typing import TYPE_CHECKING
 
 from featkit.builders.distributional_space import DistributionalSpaceBuilder
 from featkit.builders.pivot_space import PivotSpaceBuilder
+from featkit.builders.ratio_space import RatioSpaceBuilder
 from featkit.builders.temporal_space import TemporalSpaceBuilder
 from featkit.config import FeatureStoreConfig
 from featkit.layer2.distributional import DistributionalColumn
 from featkit.layer2.pivoted import PivotedColumn
+from featkit.layer2.ratio import RatioPivotedColumn
 from featkit.layer3.temporal_feature import TemporalFeature
 
 if TYPE_CHECKING:
@@ -33,6 +35,7 @@ class FeatureStorePipeline:
         self.config = config
         self.layer2a: list[PivotedColumn] = []
         self.layer2b: list[DistributionalColumn] = []
+        self.layer2c: list[RatioPivotedColumn] = []
         self.layer3: list[TemporalFeature] = []
 
     def build(self) -> FeatureStorePipeline:
@@ -62,8 +65,13 @@ class FeatureStorePipeline:
             dataset=cfg.dataset,
             verbose=cfg.verbose,
         ).build()
+        self.layer2c = (
+            RatioSpaceBuilder(self.layer2a, verbose=cfg.verbose).build()
+            if cfg.include_ratios and cfg.include_marginals
+            else []
+        )
         self.layer3 = TemporalSpaceBuilder(
-            layer2_columns=[*self.layer2a, *self.layer2b],
+            layer2_columns=[*self.layer2a, *self.layer2b, *self.layer2c],
             time_windows=cfg.time_windows,
             composed_windows=cfg.composed_windows,
             operators_override=cfg.operators_override,
