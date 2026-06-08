@@ -59,5 +59,6 @@ class PivotedColumn(AbstractLayer2Column):
     def column_name(self) -> str:
         parts = [self.layer2_aggregator.value, self.source_measurement.name]
         for field, value in sorted(self.categorical_combination.items(), key=lambda kv: kv[0].name):
-            parts.append(f"{field.name}_{value}" if value is not None else field.name)
+            if value is not None:
+                parts.append(f"{field.name}_{value}")
         return "__".join(parts)
