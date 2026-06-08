@@ -1,4 +1,4 @@
-"""AdapterDomainResolver — resolves CategoricalField domains via a live adapter."""
+"""Domain resolvers — resolve CategoricalField domains via a live adapter."""
 
 from __future__ import annotations
 
@@ -96,3 +96,82 @@ class AdapterDomainResolver:
         )
         df = self._adapter.execute(sql)
         return list(df.iloc[:, 0].astype(str))
+
+
+class AdapterCombinationResolver:
+    """Resolves observed multi-field combinations by executing a single
+    ``SELECT DISTINCT`` query against the facts table.
+
+    Instead of generating the full Cartesian product of per-field domains,
+    this resolver queries only the combinations that actually exist in the
+    data — optionally filtered by each field's ``allowed_values``.  Fields
+    without ``allowed_values`` are included in the SELECT but not filtered
+    in the WHERE clause.
+
+    Column names and the source reference are validated against a strict
+    identifier pattern before being interpolated into SQL.  String values
+    in ``allowed_values`` are escaped with standard SQL single-quote
+    doubling to prevent injection.
+
+    The resolver is a callable compatible with the ``combination_resolver``
+    parameter of :class:`~featkit.builders.pivot_space.PivotSpaceBuilder`.
+
+    Args:
+        adapter: A :class:`~featkit.execution.adapters.base.DataSourceAdapter`
+            instance used to execute the query.
+        source_reference: Fully-qualified table name.  Validated at
+            construction time.
+
+    Raises:
+        ValueError: At construction time if *source_reference* is unsafe,
+            or at call time if any field name is unsafe.
+    """
+
+    def __init__(self, adapter: DataSourceAdapter, source_reference: str) -> None:
+        _require_safe_reference(source_reference, "source_reference")
+        self._adapter = adapter
+        self._source_reference = source_reference
+
+    def __call__(self, fields: list[CategoricalField]) -> list[dict[CategoricalField, str]]:
+        """Return observed non-null combinations for *fields* from the facts table.
+
+        Fields are sorted by name before building the query so the SQL is
+        deterministic regardless of the order *fields* are supplied.
+
+        Raises:
+            ValueError: If any ``field.name`` is not a safe SQL identifier.
+        """
+        if not fields:
+            return []
+        for field in fields:
+            _require_safe_identifier(field.name, "field.name")
+
+        sorted_fields = sorted(fields, key=lambda f: f.name)
+        col_list = ", ".join(f.name for f in sorted_fields)
+        order_list = ", ".join(str(i + 1) for i in range(len(sorted_fields)))
+
+        where_parts: list[str] = [f"{f.name} IS NOT NULL" for f in sorted_fields]
+        for f in sorted_fields:
+            if f.allowed_values is not None:
+                if len(f.allowed_values) == 0:
+                    return []
+                if any(v is None for v in f.allowed_values):
+                    raise ValueError(
+                        f"CategoricalField {f.name!r}: allowed_values contains None; "
+                        "None is reserved as the ∅ marginal sentinel"
+                    )
+                escaped = ", ".join("'" + str(v).replace("'", "''") + "'" for v in f.allowed_values)
+                where_parts.append(f"{f.name} IN ({escaped})")
+
+        sql = (
+            f"SELECT DISTINCT {col_list} "
+            f"FROM {self._source_reference} "
+            f"WHERE {' AND '.join(where_parts)} "
+            f"ORDER BY {order_list}"
+        )
+        df = self._adapter.execute(sql)
+        if df.empty:
+            return []
+        df = df.astype(str)
+        records = df.to_dict(orient="records")
+        return [{f: rec[f.name] for f in fields} for rec in records]

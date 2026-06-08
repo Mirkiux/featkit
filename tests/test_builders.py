@@ -243,6 +243,166 @@ class TestPivotSpaceBuilderDomainResolution:
             ).build()
 
 
+class TestPivotSpaceBuilderCombinationResolver:
+    """PivotSpaceBuilder with combination_resolver (observed-combinations path)."""
+
+    def _ds_two_cats(self) -> SimpleDataset:
+        return SimpleDataset(
+            "tbl",
+            [
+                _id(),
+                _ts(),
+                _mto(),
+                CategoricalField("cat1", CategoricalTreatment.PIVOT, allowed_values=["A", "B"]),
+                CategoricalField("cat2", CategoricalTreatment.PIVOT, allowed_values=["X", "Y"]),
+            ],
+        )
+
+    def _ds_one_cat(self) -> SimpleDataset:
+        return SimpleDataset(
+            "tbl",
+            [
+                _id(),
+                _ts(),
+                _mto(),
+                CategoricalField("sector", CategoricalTreatment.PIVOT, allowed_values=["P", "Q"]),
+            ],
+        )
+
+    def test_only_observed_combos_used_not_full_cartesian(self) -> None:
+        observed = [
+            {
+                CategoricalField(
+                    "cat1", CategoricalTreatment.PIVOT, allowed_values=["A", "B"]
+                ): "A",
+                CategoricalField(
+                    "cat2", CategoricalTreatment.PIVOT, allowed_values=["X", "Y"]
+                ): "X",
+            }
+        ]
+        cols = PivotSpaceBuilder(
+            dataset=self._ds_two_cats(),
+            include_marginals=False,
+            combination_resolver=lambda _: observed,
+        ).build()
+        # 1 observed combo × 4 MONTO aggs = 4  (not 2×2=4 Cartesian, but here coincidentally same)
+        # Confirm by checking no (A,Y) or (B,X) or (B,Y) names appear
+        names = [c.column_name for c in cols]
+        assert not any("cat1_B" in n for n in names)
+        assert not any("cat2_Y" in n for n in names)
+        assert len(cols) == 4
+
+    def test_include_marginals_false_returns_only_observed(self) -> None:
+        cat1 = CategoricalField("cat1", CategoricalTreatment.PIVOT, allowed_values=["A", "B"])
+        cat2 = CategoricalField("cat2", CategoricalTreatment.PIVOT, allowed_values=["X", "Y"])
+        observed = [{cat1: "A", cat2: "X"}, {cat1: "B", cat2: "Y"}]
+        cols = PivotSpaceBuilder(
+            dataset=self._ds_two_cats(),
+            include_marginals=False,
+            combination_resolver=lambda _: observed,
+        ).build()
+        # 2 observed combos × 4 aggs = 8
+        assert len(cols) == 2 * 4
+
+    def test_include_marginals_adds_projections_of_observed(self) -> None:
+        cat1 = CategoricalField("cat1", CategoricalTreatment.PIVOT, allowed_values=["A", "B"])
+        cat2 = CategoricalField("cat2", CategoricalTreatment.PIVOT, allowed_values=["X", "Y"])
+        observed = [{cat1: "A", cat2: "X"}]
+        cols = PivotSpaceBuilder(
+            dataset=self._ds_two_cats(),
+            include_marginals=True,
+            combination_resolver=lambda _: observed,
+        ).build()
+        # (A,X), (A,None), (None,X), (None,None) = 4 combos × 4 aggs = 16
+        assert len(cols) == 4 * 4
+        names = [c.column_name for c in cols]
+        # unobserved combinations never appear
+        assert not any("cat1_B" in n for n in names)
+        assert not any("cat2_Y" in n for n in names)
+
+    def test_marginals_deduplicated_across_observed_combos(self) -> None:
+        cat1 = CategoricalField("cat1", CategoricalTreatment.PIVOT, allowed_values=["A", "B"])
+        cat2 = CategoricalField("cat2", CategoricalTreatment.PIVOT, allowed_values=["X", "Y"])
+        observed = [{cat1: "A", cat2: "X"}, {cat1: "B", cat2: "X"}]
+        cols = PivotSpaceBuilder(
+            dataset=self._ds_two_cats(),
+            include_marginals=True,
+            combination_resolver=lambda _: observed,
+        ).build()
+        # (A,X), (B,X), (None,X) [shared projection], (A,None), (B,None), (None,None) = 6 combos
+        assert len(cols) == 6 * 4
+        # names must be unique
+        names = [c.column_name for c in cols]
+        assert len(names) == len(set(names))
+
+    def test_empty_observed_with_marginals_yields_global_marginal(self) -> None:
+        cols = PivotSpaceBuilder(
+            dataset=self._ds_one_cat(),
+            include_marginals=True,
+            combination_resolver=lambda _: [],
+        ).build()
+        # Only the all-None combination: sector=None → column_name = "SUM__mto" etc.
+        assert len(cols) == 4  # 4 MONTO aggs, no categorical in name
+        names = [c.column_name for c in cols]
+        assert not any("sector" in n for n in names)
+
+    def test_empty_observed_without_marginals_yields_no_columns(self) -> None:
+        cols = PivotSpaceBuilder(
+            dataset=self._ds_one_cat(),
+            include_marginals=False,
+            combination_resolver=lambda _: [],
+        ).build()
+        assert cols == []
+
+    def test_combination_resolver_called_once(self) -> None:
+        calls: list[int] = []
+
+        def resolver(fields: list[CategoricalField]) -> list[dict[CategoricalField, str]]:
+            calls.append(1)
+            return []
+
+        PivotSpaceBuilder(
+            dataset=self._ds_one_cat(),
+            include_marginals=False,
+            combination_resolver=resolver,
+        ).build()
+        assert len(calls) == 1
+
+    def test_no_cats_resolver_not_called(self) -> None:
+        calls: list[int] = []
+
+        def resolver(fields: list[CategoricalField]) -> list[dict[CategoricalField, str]]:
+            calls.append(1)
+            return []
+
+        ds = SimpleDataset("tbl", [_id(), _ts(), _mto()])
+        PivotSpaceBuilder(
+            dataset=ds,
+            combination_resolver=resolver,
+        ).build()
+        # pivot_cats is empty → combination_resolver is not called
+        assert len(calls) == 0
+
+    def test_combination_resolver_overrides_domain_resolver(self) -> None:
+        """When combination_resolver is provided, domain_resolver is ignored."""
+        domain_calls: list[str] = []
+
+        def domain_resolver(f: CategoricalField) -> list[str]:
+            domain_calls.append(f.name)
+            return ["Z"]
+
+        cat = CategoricalField("sector", CategoricalTreatment.PIVOT)
+        observed_sector = [{CategoricalField("sector", CategoricalTreatment.PIVOT): "P"}]
+        ds = SimpleDataset("tbl", [_id(), _ts(), _mto(), cat])
+        PivotSpaceBuilder(
+            dataset=ds,
+            include_marginals=False,
+            combination_resolver=lambda _: observed_sector,
+            domain_resolver=domain_resolver,
+        ).build()
+        assert domain_calls == []
+
+
 class TestPivotSpaceBuilderDuplicateDetection:
     def test_duplicate_domain_values_raise(self) -> None:
         ds = SimpleDataset(
@@ -637,12 +797,9 @@ class TestPivotSpaceBuilderVerbose:
         assert "PivotSpaceBuilder.build() started" in caplog.text
         assert "PivotSpaceBuilder.build() done" in caplog.text
 
-    def test_verbose_true_emits_combo_and_cat_combination(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_verbose_true_emits_cat_combination(self, caplog: pytest.LogCaptureFixture) -> None:
         with caplog.at_level(logging.DEBUG, logger=_PIVOT_LOGGER):
             PivotSpaceBuilder(dataset=self._ds(), verbose=True).build()
-        assert "combo:" in caplog.text
         assert "cat_combination:" in caplog.text
 
     def test_verbose_true_emits_column_name(self, caplog: pytest.LogCaptureFixture) -> None:

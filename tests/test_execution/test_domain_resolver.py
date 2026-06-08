@@ -1,4 +1,4 @@
-"""Tests for AdapterDomainResolver."""
+"""Tests for AdapterDomainResolver and AdapterCombinationResolver."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from featkit.config import FeatureStoreConfig
 from featkit.dataset.base import SimpleDataset
 from featkit.enums import CategoricalTreatment, MeasurementType, TimeGranularity
 from featkit.execution.adapters.mock_adapter import MockAdapter
-from featkit.execution.domain_resolver import AdapterDomainResolver
+from featkit.execution.domain_resolver import AdapterCombinationResolver, AdapterDomainResolver
 from featkit.fields.categorical_field import CategoricalField
 from featkit.fields.id_field import IDField
 from featkit.fields.measurement_field import MeasurementField
@@ -193,9 +193,19 @@ class TestPipelineWithAdapter:
         )
         assert adapter.call_count(expected_sql) == 1
 
-    def test_static_fields_do_not_trigger_adapter_query(self) -> None:
-        sql_segment = f"SELECT DISTINCT segment FROM {_SOURCE} WHERE segment IS NOT NULL ORDER BY 1"
-        adapter = MockAdapter({sql_segment: pd.DataFrame({"segment": ["retail"]})})
+    def test_combined_query_replaces_per_field_queries(self) -> None:
+        """One combined SELECT DISTINCT query is issued for all pivot fields.
+
+        allowed_values become IN-filters in the WHERE clause rather than
+        preventing the query from running altogether.
+        """
+        combined_sql = (
+            f"SELECT DISTINCT channel, segment FROM {_SOURCE} "
+            f"WHERE channel IS NOT NULL AND segment IS NOT NULL "
+            f"AND channel IN ('branch', 'online') ORDER BY 1, 2"
+        )
+        df = pd.DataFrame({"channel": ["branch"], "segment": ["retail"]})
+        adapter = MockAdapter({combined_sql: df})
         cfg = FeatureStoreConfig(
             dataset=_ds_mixed(),
             output_schema="analytics",
@@ -204,10 +214,11 @@ class TestPipelineWithAdapter:
             adapter=adapter,
         )
         FeatureStorePipeline(config=cfg).build()
-        # Only the dynamic field triggered a query — channel had allowed_values
-        sql_channel = f"SELECT DISTINCT channel FROM {_SOURCE} WHERE channel IS NOT NULL ORDER BY 1"
-        assert adapter.call_count(sql_channel) == 0
-        assert adapter.call_count(sql_segment) == 1
+        assert adapter.call_count(combined_sql) == 1
+        per_field_sql = (
+            f"SELECT DISTINCT segment FROM {_SOURCE} WHERE segment IS NOT NULL ORDER BY 1"
+        )
+        assert adapter.call_count(per_field_sql) == 0
 
     def test_no_adapter_with_static_domains_builds_fine(self) -> None:
         ds = SimpleDataset(
@@ -231,3 +242,115 @@ class TestPipelineWithAdapter:
         )
         pipeline = FeatureStorePipeline(config=cfg).build()
         assert len(pipeline.layer2a) > 0
+
+
+# ---------------------------------------------------------------------------
+# AdapterCombinationResolver unit tests
+# ---------------------------------------------------------------------------
+
+_CHANNEL = CategoricalField(
+    "channel", CategoricalTreatment.PIVOT, allowed_values=["branch", "online"]
+)
+_SEGMENT = CategoricalField("segment", CategoricalTreatment.PIVOT)
+
+
+def _combo_sql(*fields_and_values: tuple[str, list[str] | None], source: str = _SOURCE) -> str:
+    """Build the expected combined SELECT DISTINCT SQL for the given fields.
+
+    Each entry is (field_name, allowed_values_or_None).  Fields are sorted by
+    name to match AdapterCombinationResolver's deterministic ordering.
+    """
+    sorted_fv = sorted(fields_and_values, key=lambda x: x[0])
+    col_list = ", ".join(name for name, _ in sorted_fv)
+    order_list = ", ".join(str(i + 1) for i in range(len(sorted_fv)))
+    where_parts = [f"{name} IS NOT NULL" for name, _ in sorted_fv]
+    for name, vals in sorted_fv:
+        if vals:
+            escaped = ", ".join("'" + v.replace("'", "''") + "'" for v in vals)
+            where_parts.append(f"{name} IN ({escaped})")
+    return (
+        f"SELECT DISTINCT {col_list} FROM {source} "
+        f"WHERE {' AND '.join(where_parts)} ORDER BY {order_list}"
+    )
+
+
+class TestAdapterCombinationResolverValidation:
+    def test_invalid_source_reference_raises(self) -> None:
+        adapter = MockAdapter({})
+        with pytest.raises(ValueError, match="source_reference"):
+            AdapterCombinationResolver(adapter, "mydb; DROP TABLE facts--")
+
+    def test_invalid_field_name_raises(self) -> None:
+        adapter = MockAdapter({})
+        resolver = AdapterCombinationResolver(adapter, _SOURCE)
+        bad_field = CategoricalField("bad; DROP TABLE--", CategoricalTreatment.PIVOT)
+        with pytest.raises(ValueError, match="field.name"):
+            resolver([bad_field])
+
+
+class TestAdapterCombinationResolver:
+    def test_empty_fields_returns_empty_list(self) -> None:
+        resolver = AdapterCombinationResolver(MockAdapter({}), _SOURCE)
+        assert resolver([]) == []
+
+    def test_single_field_no_allowed_values_generates_no_in_filter(self) -> None:
+        sql = _combo_sql(("segment", None))
+        df = pd.DataFrame({"segment": ["retail", "sme"]})
+        adapter = MockAdapter({sql: df})
+        resolver = AdapterCombinationResolver(adapter, _SOURCE)
+        result = resolver([_SEGMENT])
+        assert adapter.call_count(sql) == 1
+        assert len(result) == 2
+
+    def test_single_field_with_allowed_values_adds_in_filter(self) -> None:
+        sql = _combo_sql(("channel", ["branch", "online"]))
+        df = pd.DataFrame({"channel": ["branch", "online"]})
+        adapter = MockAdapter({sql: df})
+        resolver = AdapterCombinationResolver(adapter, _SOURCE)
+        result = resolver([_CHANNEL])
+        assert adapter.call_count(sql) == 1
+        assert len(result) == 2
+
+    def test_multiple_fields_sorted_by_name(self) -> None:
+        sql = _combo_sql(("channel", ["branch", "online"]), ("segment", None))
+        df = pd.DataFrame({"channel": ["branch", "online"], "segment": ["retail", "sme"]})
+        adapter = MockAdapter({sql: df})
+        resolver = AdapterCombinationResolver(adapter, _SOURCE)
+        result = resolver([_SEGMENT, _CHANNEL])  # intentionally reversed order
+        assert adapter.call_count(sql) == 1
+        assert len(result) == 2
+
+    def test_returns_field_keyed_dicts(self) -> None:
+        sql = _combo_sql(("channel", ["branch", "online"]), ("segment", None))
+        df = pd.DataFrame({"channel": ["branch"], "segment": ["retail"]})
+        adapter = MockAdapter({sql: df})
+        resolver = AdapterCombinationResolver(adapter, _SOURCE)
+        result = resolver([_CHANNEL, _SEGMENT])
+        assert result == [{_CHANNEL: "branch", _SEGMENT: "retail"}]
+
+    def test_values_cast_to_str(self) -> None:
+        sql = _combo_sql(("segment", None))
+        df = pd.DataFrame({"segment": [1, 2]})
+        adapter = MockAdapter({sql: df})
+        resolver = AdapterCombinationResolver(adapter, _SOURCE)
+        result = resolver([_SEGMENT])
+        assert result == [{_SEGMENT: "1"}, {_SEGMENT: "2"}]
+
+    def test_empty_result_returns_empty_list(self) -> None:
+        sql = _combo_sql(("segment", None))
+        df = pd.DataFrame({"segment": pd.Series([], dtype=str)})
+        adapter = MockAdapter({sql: df})
+        resolver = AdapterCombinationResolver(adapter, _SOURCE)
+        assert resolver([_SEGMENT]) == []
+
+    def test_allowed_values_single_quotes_are_escaped(self) -> None:
+        tricky = CategoricalField(
+            "region", CategoricalTreatment.PIVOT, allowed_values=["it's here", "plain"]
+        )
+        sql = _combo_sql(("region", ["it's here", "plain"]))
+        assert "it''s here" in sql
+        df = pd.DataFrame({"region": ["it's here"]})
+        adapter = MockAdapter({sql: df})
+        resolver = AdapterCombinationResolver(adapter, _SOURCE)
+        result = resolver([tricky])
+        assert result == [{tricky: "it's here"}]
