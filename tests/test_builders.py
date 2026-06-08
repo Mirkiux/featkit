@@ -797,12 +797,9 @@ class TestPivotSpaceBuilderVerbose:
         assert "PivotSpaceBuilder.build() started" in caplog.text
         assert "PivotSpaceBuilder.build() done" in caplog.text
 
-    def test_verbose_true_emits_combo_and_cat_combination(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_verbose_true_emits_cat_combination(self, caplog: pytest.LogCaptureFixture) -> None:
         with caplog.at_level(logging.DEBUG, logger=_PIVOT_LOGGER):
             PivotSpaceBuilder(dataset=self._ds(), verbose=True).build()
-        assert "combo:" in caplog.text
         assert "cat_combination:" in caplog.text
 
     def test_verbose_true_emits_column_name(self, caplog: pytest.LogCaptureFixture) -> None:

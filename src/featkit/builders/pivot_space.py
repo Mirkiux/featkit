@@ -135,11 +135,13 @@ class PivotSpaceBuilder:
             for combo in observed_raw:
                 if set(combo.keys()) != pivot_key_set:
                     raise ValueError(
-                        "combination_resolver must return dicts keyed by all pivot categorical fields"
+                        "combination_resolver must return dicts keyed by all "
+                        "pivot categorical fields"
                     )
                 if any(v is None for v in combo.values()):
                     raise ValueError(
-                        "combination_resolver returned None; None is reserved as the ∅ marginal sentinel"
+                        "combination_resolver returned None; "
+                        "None is reserved as the ∅ marginal sentinel"
                     )
                 observed.append({pivot_map[f]: str(v) for f, v in combo.items()})
             if self.include_marginals:
@@ -153,9 +155,7 @@ class PivotSpaceBuilder:
                     raw: list[str] = list(cat.allowed_values)
                 elif self.domain_resolver is not None:
                     if self.verbose:
-                        _log.debug(
-                            "domain_resolver: resolving domain for categorical %r", cat.name
-                        )
+                        _log.debug("domain_resolver: resolving domain for categorical %r", cat.name)
                     raw = list(self.domain_resolver(cat))
                     if self.verbose:
                         _log.debug(
@@ -208,9 +208,7 @@ class PivotSpaceBuilder:
                     results.append(col)
 
         if self.verbose:
-            _log.debug(
-                "PivotSpaceBuilder.build() done — %d column(s) generated", len(results)
-            )
+            _log.debug("PivotSpaceBuilder.build() done — %d column(s) generated", len(results))
         return results
 
     def _valid_aggregators(self, mf: MeasurementField) -> list[Layer2Aggregator]:

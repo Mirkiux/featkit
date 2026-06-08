@@ -157,7 +157,8 @@ class AdapterCombinationResolver:
                     return []
                 if any(v is None for v in f.allowed_values):
                     raise ValueError(
-                        f"CategoricalField {f.name!r}: allowed_values contains None; None is reserved as the ∅ marginal sentinel"
+                        f"CategoricalField {f.name!r}: allowed_values contains None; "
+                        "None is reserved as the ∅ marginal sentinel"
                     )
                 escaped = ", ".join("'" + str(v).replace("'", "''") + "'" for v in f.allowed_values)
                 where_parts.append(f"{f.name} IN ({escaped})")
