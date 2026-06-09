@@ -96,7 +96,7 @@ class TestConcreteContracts:
             ),
         ],
     )
-    def test_valid_aggregators(self, contract_cls, mt, expected_aggs) -> None:  # type: ignore[no-untyped-def]
+    def test_valid_aggregators(self, contract_cls, mt, expected_aggs) -> None:
         contract = contract_cls()
         assert contract.measurement_type == mt
         assert contract.valid_layer2_aggregators == frozenset(expected_aggs)
