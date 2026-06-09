@@ -27,10 +27,11 @@ class FeatureStoreConfig:
         include_marginals: When ``True``, ``PivotSpaceBuilder`` includes the ∅
             marginal combination for each categorical.
         include_ratios: When ``True`` (and ``include_marginals`` is also
-            ``True``), ``RatioSpaceBuilder`` derives a ratio column for
-            every fully-specified pivot combination over each of its marginal
-            projections.  Has no effect when ``include_marginals`` is
-            ``False`` (no marginal denominators exist).
+            ``True``), ``RatioSpaceBuilder`` derives a ratio column
+            (``numerator / NULLIF(denominator, 0)``) for every pivot
+            combination over each of its proper marginal projections.  Has no
+            effect when ``include_marginals`` is ``False`` (no marginal
+            denominators exist).
         aggregators_override: Per-measurement-type override for Layer 2
             aggregators. Only contract-valid aggregators are used.
         operators_override: Per-output-type override for temporal operators.

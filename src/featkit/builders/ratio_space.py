@@ -13,17 +13,20 @@ _log = logging.getLogger(__name__)
 class RatioSpaceBuilder:
     """Generates all valid ratio columns from a list of pivot columns.
 
-    For each fully-specified pivot column (no marginal fields), the builder
-    finds every marginal projection of that combination in the same list and
-    creates a :class:`~featkit.layer2.ratio.RatioPivotedColumn` for each
+    For each pivot column that has at least one non-``None`` categorical value
+    (potential numerator), the builder finds every other column in the list
+    that is a proper marginal projection of it and creates a
+    :class:`~featkit.layer2.ratio.RatioPivotedColumn` for each valid
     (numerator, denominator) pair.
 
-    A marginal projection is a pivot column that:
+    A proper marginal projection (denominator) satisfies:
 
-    * shares the same aggregator and source measurement,
-    * has the same set of categorical fields,
-    * has at least one field set to ``None`` (∅ marginal), and
-    * for every non-``None`` field, the value equals the numerator's value.
+    * same aggregator and source measurement instance,
+    * same set of categorical fields,
+    * every non-``None`` denominator value equals the numerator's value for
+      that field, and
+    * at least one field that is ``None`` in the denominator but non-``None``
+      in the numerator (the denominator sums over that dimension).
 
     Args:
         pivot_columns: The full set of Layer 2A pivot columns, typically
@@ -45,13 +48,14 @@ class RatioSpaceBuilder:
         if self.verbose:
             _log.debug("RatioSpaceBuilder.build() started")
 
-        full = [
+        # Potential numerators: any column with at least one non-None categorical value
+        numerators = [
             c
             for c in self.pivot_columns
-            if c.categorical_combination
-            and all(v is not None for v in c.categorical_combination.values())
+            if any(v is not None for v in c.categorical_combination.values())
         ]
-        marginals = [
+        # Potential denominators: any column with at least one None categorical value
+        denominators = [
             c
             for c in self.pivot_columns
             if any(v is None for v in c.categorical_combination.values())
@@ -60,19 +64,27 @@ class RatioSpaceBuilder:
         results: list[RatioPivotedColumn] = []
         seen: set[str] = set()
 
-        for num in full:
+        for num in numerators:
             num_fields = set(num.categorical_combination.keys())
-            for denom in marginals:
+            for denom in denominators:
                 if (
                     denom.layer2_aggregator != num.layer2_aggregator
                     or denom.source_measurement is not num.source_measurement
                     or set(denom.categorical_combination.keys()) != num_fields
                 ):
                     continue
-                if not all(
-                    dv is None or dv == num.categorical_combination[df]
-                    for df, dv in denom.categorical_combination.items()
-                ):
+                # Denom must not contradict num, and must marginalize at least one
+                # field that num has a non-None value for.
+                valid = True
+                is_proper = False
+                for f, dv in denom.categorical_combination.items():
+                    nv = num.categorical_combination[f]
+                    if dv is not None and dv != nv:
+                        valid = False
+                        break
+                    if dv is None and nv is not None:
+                        is_proper = True
+                if not valid or not is_proper:
                     continue
                 col = RatioPivotedColumn(num, denom)
                 if col.column_name not in seen:

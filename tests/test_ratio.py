@@ -136,15 +136,15 @@ class TestRatioPivotedColumnValidation:
         with pytest.raises(ValueError, match="same source_measurement"):
             RatioPivotedColumn(num, denom)
 
-    def test_equal_measurements_different_instances_are_allowed(self, channel, region):
+    def test_different_instances_same_measurement_raises(self, channel, region):
+        # RatioPivotedColumn uses identity (is not) for source_measurement:
+        # equal-but-distinct MeasurementField objects are rejected by design.
         mf1 = MeasurementField("amount", MeasurementType.MONTO)
         mf2 = MeasurementField("amount", MeasurementType.MONTO)
         num = PivotedColumn(mf1, Layer2Aggregator.SUM, {channel: "retail", region: "north"})
         denom = PivotedColumn(mf2, Layer2Aggregator.SUM, {channel: None, region: "north"})
-        ratio = RatioPivotedColumn(num, denom)
-        assert ratio.column_name == (
-            "SUM__amount__channel_retail__region_north__over__SUM__amount__region_north"
-        )
+        with pytest.raises(ValueError, match="same source_measurement"):
+            RatioPivotedColumn(num, denom)
 
     def test_field_keys_mismatch_raises(self, amount, channel, region):
         other = CategoricalField("other", CategoricalTreatment.PIVOT, allowed_values=["x"])
@@ -153,16 +153,25 @@ class TestRatioPivotedColumnValidation:
         with pytest.raises(ValueError, match="same categorical fields"):
             RatioPivotedColumn(num, denom)
 
-    def test_numerator_with_none_raises(self, amount, channel, region):
+    def test_partial_numerator_is_valid(self, amount, channel, region):
+        # Numerator may have None fields; denominator just needs to be more marginal.
         num = PivotedColumn(amount, Layer2Aggregator.SUM, {channel: None, region: "north"})
         denom = PivotedColumn(amount, Layer2Aggregator.SUM, {channel: None, region: None})
-        with pytest.raises(ValueError, match="fully-specified"):
-            RatioPivotedColumn(num, denom)
+        ratio = RatioPivotedColumn(num, denom)
+        assert ratio.column_name == "SUM__amount__region_north__over__SUM__amount"
 
-    def test_denominator_no_none_raises(self, amount, channel, region):
+    def test_denom_not_more_marginal_raises(self, amount, channel, region):
+        # Denominator must marginalize at least one non-None field from numerator.
         num = PivotedColumn(amount, Layer2Aggregator.SUM, {channel: "retail", region: "north"})
         denom = PivotedColumn(amount, Layer2Aggregator.SUM, {channel: "retail", region: "north"})
-        with pytest.raises(ValueError, match="at least one categorical value"):
+        with pytest.raises(ValueError, match="proper marginal projection"):
+            RatioPivotedColumn(num, denom)
+
+    def test_all_none_numerator_raises(self, amount, channel, region):
+        # A global marginal cannot be a numerator: no field to marginalize further.
+        num = PivotedColumn(amount, Layer2Aggregator.SUM, {channel: None, region: None})
+        denom = PivotedColumn(amount, Layer2Aggregator.SUM, {channel: None, region: None})
+        with pytest.raises(ValueError, match="proper marginal projection"):
             RatioPivotedColumn(num, denom)
 
     def test_denominator_value_mismatch_raises(self, amount, channel, region):
@@ -182,6 +191,9 @@ class TestRatioSpaceBuilder:
     def test_produces_ratio_per_marginal(
         self, full_combo, marginal_channel, marginal_region, marginal_all
     ):
+        # full → three denominators (all marginal projections)
+        # marginal_channel ({ch:None, r:north}) → marginal_all  (marginalises region)
+        # marginal_region  ({ch:retail, r:None}) → marginal_all  (marginalises channel)
         cols = [full_combo, marginal_channel, marginal_region, marginal_all]
         ratios = RatioSpaceBuilder(cols).build()
         names = {r.column_name for r in ratios}
@@ -190,10 +202,20 @@ class TestRatioSpaceBuilder:
             "SUM__amount__channel_retail__region_north__over__SUM__amount__channel_retail" in names
         )
         assert "SUM__amount__channel_retail__region_north__over__SUM__amount" in names
-        assert len(ratios) == 3
+        assert "SUM__amount__region_north__over__SUM__amount" in names
+        assert "SUM__amount__channel_retail__over__SUM__amount" in names
+        assert len(ratios) == 5
 
-    def test_no_full_combos_returns_empty(self, marginal_channel, marginal_all):
-        ratios = RatioSpaceBuilder([marginal_channel, marginal_all]).build()
+    def test_partial_numerator_produces_ratios(self, amount, channel, region):
+        # {channel=None, region=north} can be a numerator over {channel=None, region=None}
+        partial = PivotedColumn(amount, Layer2Aggregator.SUM, {channel: None, region: "north"})
+        global_m = PivotedColumn(amount, Layer2Aggregator.SUM, {channel: None, region: None})
+        ratios = RatioSpaceBuilder([partial, global_m]).build()
+        assert len(ratios) == 1
+        assert ratios[0].column_name == "SUM__amount__region_north__over__SUM__amount"
+
+    def test_only_global_marginals_returns_empty(self, marginal_all):
+        ratios = RatioSpaceBuilder([marginal_all]).build()
         assert ratios == []
 
     def test_no_marginals_returns_empty(self, full_combo):
@@ -219,13 +241,15 @@ class TestRatioSpaceBuilder:
         ratios = RatioSpaceBuilder([num, denom]).build()
         assert ratios == []
 
-    def test_equal_measurements_different_instances_are_paired(self, channel, region):
+    def test_different_instances_same_measurement_not_paired(self, channel, region):
+        # Builder uses identity (is not) for source_measurement — same as the constructor.
+        # Equal-but-distinct MeasurementField objects are not paired by design.
         mf1 = MeasurementField("amount", MeasurementType.MONTO)
         mf2 = MeasurementField("amount", MeasurementType.MONTO)
         num = PivotedColumn(mf1, Layer2Aggregator.SUM, {channel: "retail", region: "north"})
         denom = PivotedColumn(mf2, Layer2Aggregator.SUM, {channel: None, region: "north"})
         ratios = RatioSpaceBuilder([num, denom]).build()
-        assert len(ratios) == 1
+        assert ratios == []
 
     def test_no_duplicate_ratio_columns(self, full_combo, marginal_all):
         # Same pair twice in input should still produce one ratio
