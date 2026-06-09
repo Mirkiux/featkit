@@ -207,10 +207,10 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         for col in pipeline.layer2a:
             select_parts.append(f"{self._pivoted_agg_expr(col)} AS {col.column_name}")
 
-        for col in pipeline.layer2c:
-            num_expr = self._pivoted_agg_expr(col.numerator)
-            denom_expr = self._pivoted_agg_expr(col.denominator)
-            select_parts.append(f"{num_expr} / NULLIF({denom_expr}, 0) AS {col.column_name}")
+        for ratio_col in pipeline.layer2c:
+            num_expr = self._pivoted_agg_expr(ratio_col.numerator)
+            denom_expr = self._pivoted_agg_expr(ratio_col.denominator)
+            select_parts.append(f"{num_expr} / NULLIF({denom_expr}, 0) AS {ratio_col.column_name}")
 
         group_cols = ", ".join(id_cols + [time_col])
         select_list = ",\n  ".join(select_parts)
