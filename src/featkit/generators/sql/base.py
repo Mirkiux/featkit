@@ -17,6 +17,7 @@ from featkit.generators.output import SQLOutput
 
 if TYPE_CHECKING:
     from featkit.layer2.distributional import DistributionalColumn
+    from featkit.layer2.pivoted import PivotedColumn
     from featkit.layer3.temporal_feature import TemporalFeature
     from featkit.pipeline import FeatureStorePipeline
 
@@ -160,6 +161,26 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
     # build_layer2a
     # ------------------------------------------------------------------
 
+    def _pivoted_agg_expr(self, col: PivotedColumn) -> str:
+        """Return the bare aggregate SQL expression for *col* (without alias).
+
+        Used both for regular pivot columns and as numerator/denominator
+        sub-expressions when building ratio columns.
+        """
+        meas = col.source_measurement.name
+        agg = col.layer2_aggregator.value
+        conditions = [
+            f"{self._quoted_id(cat_field.name)} = {self._str_literal(cat_val)}"
+            for cat_field, cat_val in sorted(
+                col.categorical_combination.items(), key=lambda kv: kv[0].name
+            )
+            if cat_val is not None
+        ]
+        if conditions:
+            predicate = " AND ".join(conditions)
+            return f"{agg}(CASE WHEN {predicate} THEN {meas} END)"
+        return f"{agg}({meas})"
+
     def build_layer2a(self, pipeline: FeatureStorePipeline) -> SQLOutput:
         """Generate the Layer 2A pivot aggregation table.
 
@@ -167,6 +188,9 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         :meth:`_str_literal` to escape special characters and prevent
         SQL injection in the generated script.  Column identifiers are
         double-quoted via :meth:`_quoted_id`.
+
+        Ratio columns (``layer2c``) are computed in the same SELECT as the
+        base pivot columns: ``numerator_expr / NULLIF(denominator_expr, 0)``.
         """
         verbose = pipeline.config.verbose
         if verbose:
@@ -181,25 +205,12 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         select_parts: list[str] = list(id_cols) + [time_col]
 
         for col in pipeline.layer2a:
-            meas = col.source_measurement.name
-            agg = col.layer2_aggregator.value
-            alias = col.column_name
+            select_parts.append(f"{self._pivoted_agg_expr(col)} AS {col.column_name}")
 
-            conditions = [
-                f"{self._quoted_id(cat_field.name)} = {self._str_literal(cat_val)}"
-                for cat_field, cat_val in sorted(
-                    col.categorical_combination.items(), key=lambda kv: kv[0].name
-                )
-                if cat_val is not None
-            ]
-
-            if conditions:
-                predicate = " AND ".join(conditions)
-                agg_expr = f"{agg}(CASE WHEN {predicate} THEN {meas} END)"
-            else:
-                agg_expr = f"{agg}({meas})"
-
-            select_parts.append(f"{agg_expr} AS {alias}")
+        for ratio_col in pipeline.layer2c:
+            num_expr = self._pivoted_agg_expr(ratio_col.numerator)
+            denom_expr = self._pivoted_agg_expr(ratio_col.denominator)
+            select_parts.append(f"{num_expr} / NULLIF({denom_expr}, 0) AS {ratio_col.column_name}")
 
         group_cols = ", ".join(id_cols + [time_col])
         select_list = ",\n  ".join(select_parts)
@@ -516,6 +527,7 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
             [f"l2a.{c}" for c in id_cols]
             + [f"l2a.{time_col}"]
             + [f"l2a.{col.column_name}" for col in pipeline.layer2a]
+            + [f"l2a.{col.column_name}" for col in pipeline.layer2c]
         )
         if pipeline.layer2b:
             select_parts += [f"l2b.{col.column_name}" for col in pipeline.layer2b]

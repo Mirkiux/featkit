@@ -26,6 +26,12 @@ class FeatureStoreConfig:
             When ``None`` those operators are omitted entirely.
         include_marginals: When ``True``, ``PivotSpaceBuilder`` includes the ∅
             marginal combination for each categorical.
+        include_ratios: When ``True`` (and ``include_marginals`` is also
+            ``True``), ``RatioSpaceBuilder`` derives a ratio column
+            (``numerator / NULLIF(denominator, 0)``) for every pivot
+            combination over each of its proper marginal projections.  Has no
+            effect when ``include_marginals`` is ``False`` (no marginal
+            denominators exist).
         aggregators_override: Per-measurement-type override for Layer 2
             aggregators. Only contract-valid aggregators are used.
         operators_override: Per-output-type override for temporal operators.
@@ -46,6 +52,7 @@ class FeatureStoreConfig:
     time_windows: list[int]
     composed_windows: list[int] | None = None
     include_marginals: bool = True
+    include_ratios: bool = True
     aggregators_override: dict[MeasurementType, list[Layer2Aggregator]] | None = None
     operators_override: dict[Layer2OutputType, list[TemporalOperator]] | None = field(default=None)
     adapter: DataSourceAdapter | None = None
