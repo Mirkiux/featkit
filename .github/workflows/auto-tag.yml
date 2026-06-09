@@ -11,13 +11,15 @@ jobs:
   tag:
     name: Create version tag
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # A PAT is required so the tag push triggers downstream workflows
+          # (pushes made with GITHUB_TOKEN are intentionally excluded from
+          # workflow triggers by GitHub to prevent infinite loops).
+          token: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Read version from pyproject.toml
         id: version
