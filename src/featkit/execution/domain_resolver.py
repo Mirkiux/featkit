@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import re
 
 from featkit.execution.adapters.base import DataSourceAdapter
 from featkit.fields.categorical_field import CategoricalField
+
+_log = logging.getLogger(__name__)
 
 # Matches a simple SQL identifier: letters, digits, underscores; must start
 # with a letter or underscore.  Dollar signs are excluded deliberately —
@@ -69,6 +72,8 @@ class AdapterDomainResolver:
         source_reference: Fully-qualified table name (e.g.
             ``"mydb.myschema.silver_transactions"``).  Validated against a
             safe identifier pattern at construction time.
+        verbose: When ``True``, emits a ``DEBUG``-level log message with the
+            generated SQL before each query is executed.
 
     Raises:
         ValueError: At construction time if *source_reference* contains
@@ -76,10 +81,13 @@ class AdapterDomainResolver:
             if the resolved field name does the same.
     """
 
-    def __init__(self, adapter: DataSourceAdapter, source_reference: str) -> None:
+    def __init__(
+        self, adapter: DataSourceAdapter, source_reference: str, verbose: bool = False
+    ) -> None:
         _require_safe_reference(source_reference, "source_reference")
         self._adapter = adapter
         self._source_reference = source_reference
+        self._verbose = verbose
 
     def __call__(self, field: CategoricalField) -> list[str]:
         """Return distinct non-null values for *field* from the facts table.
@@ -94,6 +102,8 @@ class AdapterDomainResolver:
             f"WHERE {field.name} IS NOT NULL "
             f"ORDER BY 1"
         )
+        if self._verbose:
+            _log.debug("AdapterDomainResolver SQL: %s", sql)
         df = self._adapter.execute(sql)
         return list(df.iloc[:, 0].astype(str))
 
@@ -121,16 +131,21 @@ class AdapterCombinationResolver:
             instance used to execute the query.
         source_reference: Fully-qualified table name.  Validated at
             construction time.
+        verbose: When ``True``, emits a ``DEBUG``-level log message with the
+            generated SQL before each query is executed.
 
     Raises:
         ValueError: At construction time if *source_reference* is unsafe,
             or at call time if any field name is unsafe.
     """
 
-    def __init__(self, adapter: DataSourceAdapter, source_reference: str) -> None:
+    def __init__(
+        self, adapter: DataSourceAdapter, source_reference: str, verbose: bool = False
+    ) -> None:
         _require_safe_reference(source_reference, "source_reference")
         self._adapter = adapter
         self._source_reference = source_reference
+        self._verbose = verbose
 
     def __call__(self, fields: list[CategoricalField]) -> list[dict[CategoricalField, str]]:
         """Return observed non-null combinations for *fields* from the facts table.
@@ -169,6 +184,8 @@ class AdapterCombinationResolver:
             f"WHERE {' AND '.join(where_parts)} "
             f"ORDER BY {order_list}"
         )
+        if self._verbose:
+            _log.debug("AdapterCombinationResolver SQL: %s", sql)
         df = self._adapter.execute(sql)
         if df.empty:
             return []

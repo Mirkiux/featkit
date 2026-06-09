@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import pandas as pd
 import pytest
 
@@ -117,6 +119,20 @@ class TestAdapterDomainResolver:
         assert resolver(field_a) == ["north", "south"]
         assert resolver(field_b) == ["online", "branch"]
 
+    def test_verbose_true_logs_sql(self, caplog: pytest.LogCaptureFixture) -> None:
+        adapter = _mock_adapter("segment", ["a"])
+        resolver = AdapterDomainResolver(adapter, _SOURCE, verbose=True)
+        with caplog.at_level(logging.DEBUG, logger="featkit.execution.domain_resolver"):
+            resolver(_FIELD)
+        assert "AdapterDomainResolver SQL:" in caplog.text
+
+    def test_verbose_false_emits_no_sql_log(self, caplog: pytest.LogCaptureFixture) -> None:
+        adapter = _mock_adapter("segment", ["a"])
+        resolver = AdapterDomainResolver(adapter, _SOURCE, verbose=False)
+        with caplog.at_level(logging.DEBUG, logger="featkit.execution.domain_resolver"):
+            resolver(_FIELD)
+        assert "AdapterDomainResolver SQL:" not in caplog.text
+
 
 # ---------------------------------------------------------------------------
 # Pipeline integration — adapter wired through FeatureStoreConfig
@@ -219,6 +235,28 @@ class TestPipelineWithAdapter:
             f"SELECT DISTINCT segment FROM {_SOURCE} WHERE segment IS NOT NULL ORDER BY 1"
         )
         assert adapter.call_count(per_field_sql) == 0
+
+    def test_verbose_true_logs_combination_resolver_sql(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        combined_sql = (
+            f"SELECT DISTINCT channel, segment FROM {_SOURCE} "
+            f"WHERE channel IS NOT NULL AND segment IS NOT NULL "
+            f"AND channel IN ('branch', 'online') ORDER BY 1, 2"
+        )
+        df = pd.DataFrame({"channel": ["branch"], "segment": ["retail"]})
+        adapter = MockAdapter({combined_sql: df})
+        cfg = FeatureStoreConfig(
+            dataset=_ds_mixed(),
+            output_schema="analytics",
+            output_table_prefix="feat_",
+            time_windows=[3],
+            adapter=adapter,
+            verbose=True,
+        )
+        with caplog.at_level(logging.DEBUG, logger="featkit.execution.domain_resolver"):
+            FeatureStorePipeline(config=cfg).build()
+        assert "AdapterCombinationResolver SQL:" in caplog.text
 
     def test_no_adapter_with_static_domains_builds_fine(self) -> None:
         ds = SimpleDataset(
@@ -354,3 +392,21 @@ class TestAdapterCombinationResolver:
         resolver = AdapterCombinationResolver(adapter, _SOURCE)
         result = resolver([tricky])
         assert result == [{tricky: "it's here"}]
+
+    def test_verbose_true_logs_sql(self, caplog: pytest.LogCaptureFixture) -> None:
+        sql = _combo_sql(("segment", None))
+        df = pd.DataFrame({"segment": ["retail"]})
+        adapter = MockAdapter({sql: df})
+        resolver = AdapterCombinationResolver(adapter, _SOURCE, verbose=True)
+        with caplog.at_level(logging.DEBUG, logger="featkit.execution.domain_resolver"):
+            resolver([_SEGMENT])
+        assert "AdapterCombinationResolver SQL:" in caplog.text
+
+    def test_verbose_false_emits_no_sql_log(self, caplog: pytest.LogCaptureFixture) -> None:
+        sql = _combo_sql(("segment", None))
+        df = pd.DataFrame({"segment": ["retail"]})
+        adapter = MockAdapter({sql: df})
+        resolver = AdapterCombinationResolver(adapter, _SOURCE, verbose=False)
+        with caplog.at_level(logging.DEBUG, logger="featkit.execution.domain_resolver"):
+            resolver([_SEGMENT])
+        assert "AdapterCombinationResolver SQL:" not in caplog.text
