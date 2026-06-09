@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-09
+
+### Added
+- Ratio/percentage features (`RatioPivotedColumn`, `RatioSpaceBuilder`): for every pivot combination with at least one non-`None` categorical value, a `numerator / NULLIF(denominator, 0)` column is generated for each proper marginal projection of that combination. Controlled by `FeatureStoreConfig.include_ratios` (default `True`, requires `include_marginals=True`). (`feat(ratio)`)
+- `verbose` parameter on `AdapterDomainResolver` and `AdapterCombinationResolver`: when `True`, the generated `SELECT DISTINCT` SQL is emitted at `DEBUG` level before execution. `FeatureStorePipeline` forwards `cfg.verbose` to the combination resolver automatically. (`feat(domain-resolver)`)
+
 ## [0.3.0] - 2026-06-08
 
 ### Added
