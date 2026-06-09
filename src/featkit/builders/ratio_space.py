@@ -65,7 +65,7 @@ class RatioSpaceBuilder:
             for denom in marginals:
                 if (
                     denom.layer2_aggregator != num.layer2_aggregator
-                    or denom.source_measurement is not num.source_measurement
+                    or denom.source_measurement != num.source_measurement
                     or set(denom.categorical_combination.keys()) != num_fields
                 ):
                     continue

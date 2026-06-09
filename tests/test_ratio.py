@@ -136,6 +136,16 @@ class TestRatioPivotedColumnValidation:
         with pytest.raises(ValueError, match="same source_measurement"):
             RatioPivotedColumn(num, denom)
 
+    def test_equal_measurements_different_instances_are_allowed(self, channel, region):
+        mf1 = MeasurementField("amount", MeasurementType.MONTO)
+        mf2 = MeasurementField("amount", MeasurementType.MONTO)
+        num = PivotedColumn(mf1, Layer2Aggregator.SUM, {channel: "retail", region: "north"})
+        denom = PivotedColumn(mf2, Layer2Aggregator.SUM, {channel: None, region: "north"})
+        ratio = RatioPivotedColumn(num, denom)
+        assert ratio.column_name == (
+            "SUM__amount__channel_retail__region_north__over__SUM__amount__region_north"
+        )
+
     def test_field_keys_mismatch_raises(self, amount, channel, region):
         other = CategoricalField("other", CategoricalTreatment.PIVOT, allowed_values=["x"])
         num = PivotedColumn(amount, Layer2Aggregator.SUM, {channel: "retail", region: "north"})
@@ -208,6 +218,14 @@ class TestRatioSpaceBuilder:
         denom = PivotedColumn(mf2, Layer2Aggregator.SUM, {channel: None, region: "north"})
         ratios = RatioSpaceBuilder([num, denom]).build()
         assert ratios == []
+
+    def test_equal_measurements_different_instances_are_paired(self, channel, region):
+        mf1 = MeasurementField("amount", MeasurementType.MONTO)
+        mf2 = MeasurementField("amount", MeasurementType.MONTO)
+        num = PivotedColumn(mf1, Layer2Aggregator.SUM, {channel: "retail", region: "north"})
+        denom = PivotedColumn(mf2, Layer2Aggregator.SUM, {channel: None, region: "north"})
+        ratios = RatioSpaceBuilder([num, denom]).build()
+        assert len(ratios) == 1
 
     def test_no_duplicate_ratio_columns(self, full_combo, marginal_all):
         # Same pair twice in input should still produce one ratio
