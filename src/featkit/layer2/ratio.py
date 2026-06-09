@@ -39,7 +39,7 @@ class RatioPivotedColumn(AbstractL2Column):
                 f"got {numerator.layer2_aggregator.name!r} vs "
                 f"{denominator.layer2_aggregator.name!r}"
             )
-        if numerator.source_measurement != denominator.source_measurement:
+        if numerator.source_measurement is not denominator.source_measurement:
             raise ValueError(
                 f"numerator and denominator must share the same source_measurement; "
                 f"got {numerator.source_measurement.name!r} vs "
