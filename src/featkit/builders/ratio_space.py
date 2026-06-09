@@ -48,11 +48,13 @@ class RatioSpaceBuilder:
         if self.verbose:
             _log.debug("RatioSpaceBuilder.build() started")
 
-        # Potential numerators: any column with at least one non-None categorical value
+        # Potential numerators: must have at least one categorical field (non-empty combination)
+        # and at least one non-None value (explicitly excludes all-None/global-marginal columns).
         numerators = [
             c
             for c in self.pivot_columns
-            if any(v is not None for v in c.categorical_combination.values())
+            if c.categorical_combination
+            and any(v is not None for v in c.categorical_combination.values())
         ]
         # Potential denominators: any column with at least one None categorical value
         denominators = [
