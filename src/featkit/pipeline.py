@@ -51,7 +51,7 @@ class FeatureStorePipeline:
             from featkit.execution.domain_resolver import AdapterCombinationResolver
 
             combination_resolver = AdapterCombinationResolver(
-                cfg.adapter, cfg.dataset.source_reference
+                cfg.adapter, cfg.dataset.source_reference, verbose=cfg.verbose
             )
 
         self.layer2a = PivotSpaceBuilder(
