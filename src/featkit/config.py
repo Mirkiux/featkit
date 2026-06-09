@@ -27,7 +27,7 @@ class FeatureStoreConfig:
         include_marginals: When ``True``, ``PivotSpaceBuilder`` includes the ∅
             marginal combination for each categorical.
         include_ratios: When ``True`` (and ``include_marginals`` is also
-            ``True``), ``RatioSpaceBuilder`` derives a percentage column for
+            ``True``), ``RatioSpaceBuilder`` derives a ratio column for
             every fully-specified pivot combination over each of its marginal
             projections.  Has no effect when ``include_marginals`` is
             ``False`` (no marginal denominators exist).
