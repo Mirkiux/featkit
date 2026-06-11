@@ -84,6 +84,19 @@ There are four families of features, each with its own naming pattern.
 | `MEASUREMENT` | `MeasurementField.name` | `MTO`, `TRX` |
 | `FIELD_VALUE` | `CategoricalField.name` + `_` + value, one per non-marginal field, sorted alphabetically by field name | `CANAL_DIGITAL`, `SECTOR_RETAIL` |
 
+The valid aggregators for each `MEASUREMENT` depend on its `MeasurementType`. Only contract-permitted aggregator–measurement combinations are generated.
+
+| Measurement type | Semantic meaning | Valid `AGG` values |
+|---|---|---|
+| `MONTO` | Monetary amount | `SUM`, `MAX`, `MIN`, `AVG` |
+| `CANTIDAD` | Count / quantity | `SUM` |
+| `TICKET` | Average ticket size | `AVG` |
+| `FLAG` | Binary indicator | `MAX` |
+| `FECHA` | Date / timestamp | `MAX`, `MIN` |
+| `BALANCE` | Point-in-time balance | `MAX`, `MIN`, `AVG` |
+| `TIME_DIFF` | Duration / elapsed time | `SUM`, `AVG`, `MAX`, `MIN` |
+| `ESTADISTICO` | Generic statistic | `SUM`, `AVG`, `MAX`, `MIN`, `COUNT` |
+
 Categorical fields set to the **∅ marginal** (no filter on that dimension) are omitted from the name entirely, so the name implicitly aggregates over all values of that dimension.
 
 ```
@@ -91,7 +104,7 @@ SUM__MTO                                  # global — all sectors, all channels
 SUM__MTO__CANAL_DIGITAL                   # CANAL=DIGITAL, marginal over SECTOR
 SUM__MTO__SECTOR_RETAIL                   # SECTOR=RETAIL, marginal over CANAL
 SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL    # CANAL=DIGITAL and SECTOR=RETAIL (alphabetical order)
-COUNT__TRX__CANAL_PRESENCIAL              # count of TRX for PRESENCIAL channel
+SUM__TRX__CANAL_PRESENCIAL                # sum of TRX (CANTIDAD → only SUM is valid) for PRESENCIAL channel
 ```
 
 ---
@@ -119,7 +132,7 @@ These columns capture the shape of the value distribution of a categorical field
 
 ```
 CANAL__MTO__SUM__ENTROPY            # entropy of channel distribution by amount
-SECTOR__TRX__COUNT__HHI             # HHI of sector distribution by transaction count
+SECTOR__TRX__SUM__HHI               # HHI of sector distribution by transaction count (CANTIDAD → only SUM)
 CANAL__MTO__SUM__MODE               # dominant channel by amount (categorical output)
 ```
 
@@ -127,7 +140,7 @@ CANAL__MTO__SUM__MODE               # dominant channel by amount (categorical ou
 
 ### Layer 2C — Ratio features
 
-**Pattern:** `{NUMERATOR}__{over}__{DENOMINATOR}`
+**Pattern:** `{NUMERATOR}__over__{DENOMINATOR}`
 
 where `NUMERATOR` and `DENOMINATOR` are full Layer 2A pivot feature names. The denominator is always a **proper marginal projection** of the numerator: it has at least one categorical dimension set to ∅ that is non-∅ in the numerator, and no contradicting values.
 
@@ -163,10 +176,10 @@ SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO
 
 | Operator | Type | Description |
 |---|---|---|
-| `PROM_U` | Windowed | Unweighted average of the source value over the window |
-| `PROM_P` | Windowed | Weighted (ponderated) average over the window |
-| `SUM_U` | Windowed | Unweighted sum over the window |
-| `SUM_P` | Windowed | Weighted sum over the window |
+| `PROM_U` | Windowed | Arithmetic mean of the monthly values over the window — each period contributes equally regardless of its volume |
+| `PROM_P` | Windowed | Volume-proportional weighted mean — each period's contribution is weighted by its share of the total aggregated value across the window; weights are derived automatically from the data, no user configuration required |
+| `SUM_U` | Windowed | Unweighted sum of the monthly values over the window |
+| `SUM_P` | Windowed | Volume-weighted sum over the window (analogous weighting to `PROM_P`) |
 | `MIN_U` | Windowed | Minimum value observed in the window |
 | `MAX_U` | Windowed | Maximum value observed in the window |
 | `CREC` | Windowed | Growth rate across the window |
@@ -182,7 +195,7 @@ SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO
 
 | Output type | Valid operators |
 |---|---|
-| `NUMERIC` | All operators |
+| `NUMERIC` | `PROM_U`, `PROM_P`, `SUM_U`, `SUM_P`, `MIN_U`, `MAX_U`, `CREC`, `FREQ`, `XM`, `ULT_MES`, `PREV_MES`, `MEDIA_ABS`, `RATIO` |
 | `FLAG` | `ULT_MES`, `PREV_MES`, `FREQ`, `XM`, `REC` |
 | `CATEGORICAL` | `ULT_MES`, `PREV_MES`, `REC` |
 | `TEMPORAL` | `ULT_MES`, `PREV_MES`, `REC`, `MIN_U`, `MAX_U`, `CREC` |
@@ -193,8 +206,8 @@ SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO
 # Average amount (DIGITAL + RETAIL) over the last 6 months
 SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__PROM_U__BACKWARD__6
 
-# Total transaction count for RETAIL sector in the last 3 months
-COUNT__TRX__SECTOR_RETAIL__SUM_U__BACKWARD__3
+# Total transaction sum for RETAIL sector in the last 3 months (CANTIDAD → only SUM valid)
+SUM__TRX__SECTOR_RETAIL__SUM_U__BACKWARD__3
 
 # Most recent value of the CANAL entropy (by amount)
 CANAL__MTO__SUM__ENTROPY__ULT_MES__BACKWARD
