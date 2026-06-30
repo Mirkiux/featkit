@@ -379,13 +379,12 @@ class PySparkCodeGenerator(AbstractCodeGenerator):
                 f' - F.lit(1)).alias("{alias}")'
             )
         if op == TemporalOperator.FREQ:
-            return (
-                f'F.count(F.when({in_window} & {col_ref}.isNotNull(), F.lit(1))).alias("{alias}")'
-            )
+            active = f"{in_window} & {col_ref}.isNotNull() & ({col_ref} > 0)"
+            return f'F.count(F.when({active}, F.lit(1))).alias("{alias}")'
         if op == TemporalOperator.XM:
-            return (
-                f'F.count(F.when({in_window} & {col_ref}.isNotNull(), F.lit(1))).alias("{alias}")'
-            )
+            active = f"{in_window} & {col_ref}.isNotNull() & ({col_ref} > 0)"
+            count_expr = f"F.count(F.when({active}, F.lit(1)))"
+            return f'F.when({count_expr} == {w}, F.lit(1)).otherwise(F.lit(0)).alias("{alias}")'
         if op == TemporalOperator.REC:
             return f'(-F.max(F.when({col_ref}.isNotNull(), {mob}))).alias("{alias}")'
         if op == TemporalOperator.MEDIA_ABS:

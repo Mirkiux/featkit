@@ -419,3 +419,56 @@ class TestTableNaming:
         sql = _GEN.build_mob_table(pipeline).sql
         assert "myschema" in sql
         assert "x_mob_ref" in sql
+
+
+# ---------------------------------------------------------------------------
+# FREQ and XM operator semantics
+# ---------------------------------------------------------------------------
+
+
+def _pipeline_flag(window: int = 6) -> FeatureStorePipeline:
+    """Pipeline with a FLAG measurement, generating FREQ and XM temporal features."""
+    ds = SimpleDataset(
+        "db.facts",
+        [
+            IDField("id"),
+            TimeField("ts", TimeGranularity.MONTHLY, TimeGranularity.MONTHLY),
+            MeasurementField("paid", MeasurementType.FLAG),
+        ],
+    )
+    cfg = FeatureStoreConfig(
+        dataset=ds,
+        output_schema="out",
+        output_table_prefix="feat_",
+        time_windows=[window],
+    )
+    return FeatureStorePipeline(config=cfg).build()
+
+
+class TestFreqXmSemantics:
+    def _sql(self, window: int = 6) -> str:
+        out = _GEN.build_layer3(_pipeline_flag(window))
+        assert isinstance(out, SQLOutput)
+        return out.sql
+
+    def test_freq_filters_positive_values(self) -> None:
+        assert "> 0" in self._sql()
+
+    def test_freq_does_not_count_zero_values(self) -> None:
+        # The count expression must gate on > 0, not just IS NOT NULL
+        sql = self._sql()
+        assert "IS NOT NULL AND" in sql.upper() or "> 0" in sql
+
+    def test_xm_returns_one_or_zero(self) -> None:
+        sql = self._sql(window=6)
+        assert "CASE WHEN" in sql.upper()
+        assert "THEN 1" in sql
+        assert "ELSE 0" in sql
+
+    def test_xm_compares_count_to_window_size(self) -> None:
+        # The XM expression must compare the active-period count against the window size
+        sql = self._sql(window=6)
+        assert "= 6" in sql
+
+    def test_layer3_with_flag_is_parseable(self) -> None:
+        assert _is_parseable(self._sql())

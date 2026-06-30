@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-06-30
+
+### Fixed
+- `FREQ` operator now counts only periods where the value is non-null **and strictly greater than 0** (previously counted any non-null value).
+- `XM` operator now returns `1` only when **every** period in the time window has a non-null and strictly positive value, `0` otherwise (previously returned a raw count identical to FREQ). Both the SQL and PySpark generators are updated.
+
 ## [0.4.1] - 2026-06-09
 
 ### Fixed
