@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-06-30
+
+### Added
+- `RatioMode` enum with two values: `ALL_PROJECTIONS` (default, existing behaviour) and `GLOBAL_TOTAL` (restricts Layer 2C denominators to the single all-∅ grand-total column, producing one ratio per numerator representing its share of the portfolio total).
+- `FeatureStoreConfig.ratio_mode` parameter (default `RatioMode.ALL_PROJECTIONS`) to select the denominator strategy for `RatioSpaceBuilder`.
+
 ## [0.4.2] - 2026-06-30
 
 ### Fixed
