@@ -468,7 +468,7 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
                 lo, hi = 0, w - 1
             in_window = f"{mob_col} BETWEEN {lo} AND {hi}"
             case_col = f"CASE WHEN {in_window} THEN {col} END"
-            case_notnull = f"CASE WHEN {in_window} AND {col} IS NOT NULL THEN 1 END"
+            case_notnull = f"CASE WHEN {in_window} AND {col} IS NOT NULL AND {col} > 0 THEN 1 END"
 
         if op == TemporalOperator.PROM_U:
             return f"AVG({case_col})"
@@ -493,7 +493,7 @@ class AbstractSQLCodeGenerator(AbstractCodeGenerator):
         if op == TemporalOperator.FREQ:
             return f"COUNT({case_notnull})"
         if op == TemporalOperator.XM:
-            return f"COUNT({case_notnull})"
+            return f"CASE WHEN COUNT({case_notnull}) = {w} THEN 1 ELSE 0 END"
         if op == TemporalOperator.REC:
             return f"-MAX(CASE WHEN {col} IS NOT NULL THEN {mob_col} END)"
         if op == TemporalOperator.MEDIA_ABS:
