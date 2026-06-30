@@ -183,8 +183,8 @@ SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO
 | `MIN_U` | Windowed | Minimum value observed in the window |
 | `MAX_U` | Windowed | Maximum value observed in the window |
 | `CREC` | Windowed | Growth rate across the window |
-| `FREQ` | Windowed | Fraction of periods in the window where the value was non-null / non-zero |
-| `XM` | Windowed | Integer count of distinct periods within the window where the source value was non-null / non-zero — ranges from `0` (no active periods) to the window size (every period active); measures how many months in the window had any activity |
+| `FREQ` | Windowed | Count of periods in the window where the value was non-null **and strictly greater than 0** |
+| `XM` | Windowed | `1` if **every** period in the window had a non-null and strictly positive value, `0` otherwise — an all-or-nothing activity indicator (e.g. `1` means the customer was active on every single month in the window) |
 | `MEDIA_ABS` | Windowed (composed) | Mean absolute deviation over the window |
 | `RATIO` | Windowed (composed) | Ratio of two sub-windows |
 | `ULT_MES` | Point-in-time | Value at the most recent period (no window suffix) |

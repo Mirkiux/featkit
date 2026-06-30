@@ -69,7 +69,7 @@ target-version = "py310"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 
@@ -79,12 +79,6 @@ disallow_untyped_defs = false
 disallow_untyped_calls = false
 disallow_any_generics = false
 disallow_incomplete_defs = false
-
-# numpy stubs use PEP 695 `type` alias syntax (Python 3.12+) which mypy
-# rejects when python_version = "3.10"; skip rather than raise a parse error.
-[[tool.mypy.overrides]]
-module = ["numpy", "numpy.*"]
-ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
