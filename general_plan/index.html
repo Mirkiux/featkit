@@ -1,0 +1,1387 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://mirkiux.github.io/featkit/general_plan/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Implementation Plan - featkit</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#featkit-general-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="featkit" class="md-header__button md-logo" aria-label="featkit" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            featkit
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Mirkiux/featkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Mirkiux/featkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Implementation Plan
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="featkit" class="md-nav__button md-logo" aria-label="featkit" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    featkit
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Mirkiux/featkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Mirkiux/featkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plan
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#critical-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Critical path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-01-enumerators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 01 — Enumerators
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-02-abstractfield-idfield-timefield" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 02 — AbstractField + IDField + TimeField
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-03-categoricalfield-measurementfield" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 03 — CategoricalField + MeasurementField
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-04-abstractmeasurementtypecontract-concrete-implementations-layer-1-layer-2-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 04 — AbstractMeasurementTypeContract + concrete implementations (Layer 1 → Layer 2 boundary)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-05-abstractlayer2outputcontract-concrete-implementations-layer-2-layer-3-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 05 — AbstractLayer2OutputContract + concrete implementations (Layer 2 → Layer 3 boundary)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-06-abstractlayer2column-pivotedcolumn-distributionalcolumn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 06 — AbstractLayer2Column + PivotedColumn + DistributionalColumn
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-07-temporalfeature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 07 — TemporalFeature
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-08-abstractdataset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 08 — AbstractDataset
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-09-pivotspacebuilder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 09 — PivotSpaceBuilder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-10-distributionalspacebuilder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 10 — DistributionalSpaceBuilder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-11-temporalspacebuilder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 11 — TemporalSpaceBuilder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-12-featurestoreconfig-featurestorepipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 12 — FeatureStoreConfig + FeatureStorePipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-13-abstractcodegenerator-featurestoreoutput-dag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 13 — AbstractCodeGenerator + FeatureStoreOutput + DAG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-14-abstractsqlcodegenerator-snowflakesqlcodegenerator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 14 — AbstractSQLCodeGenerator + SnowflakeSQLCodeGenerator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-15-databrickssqlcodegenerator-sparksqlcodegenerator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 15 — DatabricksSQLCodeGenerator + SparkSQLCodeGenerator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-16-pysparkcodegenerator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 16 — PySparkCodeGenerator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-17-integration-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 17 — Integration tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#critical-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Critical path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-01-enumerators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 01 — Enumerators
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-02-abstractfield-idfield-timefield" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 02 — AbstractField + IDField + TimeField
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-03-categoricalfield-measurementfield" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 03 — CategoricalField + MeasurementField
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-04-abstractmeasurementtypecontract-concrete-implementations-layer-1-layer-2-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 04 — AbstractMeasurementTypeContract + concrete implementations (Layer 1 → Layer 2 boundary)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-05-abstractlayer2outputcontract-concrete-implementations-layer-2-layer-3-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 05 — AbstractLayer2OutputContract + concrete implementations (Layer 2 → Layer 3 boundary)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-06-abstractlayer2column-pivotedcolumn-distributionalcolumn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 06 — AbstractLayer2Column + PivotedColumn + DistributionalColumn
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-07-temporalfeature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 07 — TemporalFeature
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-08-abstractdataset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 08 — AbstractDataset
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-09-pivotspacebuilder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 09 — PivotSpaceBuilder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-10-distributionalspacebuilder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 10 — DistributionalSpaceBuilder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-11-temporalspacebuilder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 11 — TemporalSpaceBuilder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-12-featurestoreconfig-featurestorepipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 12 — FeatureStoreConfig + FeatureStorePipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-13-abstractcodegenerator-featurestoreoutput-dag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 13 — AbstractCodeGenerator + FeatureStoreOutput + DAG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-14-abstractsqlcodegenerator-snowflakesqlcodegenerator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 14 — AbstractSQLCodeGenerator + SnowflakeSQLCodeGenerator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-15-databrickssqlcodegenerator-sparksqlcodegenerator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 15 — DatabricksSQLCodeGenerator + SparkSQLCodeGenerator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-16-pysparkcodegenerator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 16 — PySparkCodeGenerator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plan-17-integration-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan 17 — Integration tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="featkit-general-implementation-plan">featkit — General Implementation Plan</h1>
+<p>This document sequences the implementation of the featkit framework into discrete, ordered plans. Each plan has a clear scope, inputs, outputs, and acceptance criteria. Plans must be executed in order unless explicitly noted as independent.</p>
+<hr />
+<h2 id="critical-path">Critical path</h2>
+<div class="highlight"><pre><span></span><code>(01 ∥ 02) → (03 ∥ 04 ∥ 05) → 06 → (07 ∥ 08) → (09 ∥ 10 ∥ 11) → 12 → 13 → (14 ∥ 16) → 15 → 17
+</code></pre></div>
+<p>Plans connected by <code>∥</code> can be implemented in parallel. Arrows indicate that all predecessors must be complete before proceeding.</p>
+<hr />
+<h2 id="plan-01-enumerators">Plan 01 — Enumerators</h2>
+<p><strong>Module:</strong> <code>src/featkit/enums.py</code></p>
+<p><strong>Scope:</strong> Define all enumerators that form the type system of the framework. No logic, no dependencies.</p>
+<p><strong>Enums to implement:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Enum</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FieldRole</code></td>
+<td><code>ID, TIME, CATEGORICAL, MEASUREMENT</code></td>
+</tr>
+<tr>
+<td><code>MeasurementType</code></td>
+<td><code>MONTO, CANTIDAD, TICKET, FLAG, FECHA, BALANCE, TIME_DIFF, ESTADISTICO</code></td>
+</tr>
+<tr>
+<td><code>TimeGranularity</code></td>
+<td><code>DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY</code></td>
+</tr>
+<tr>
+<td><code>CategoricalTreatment</code></td>
+<td><code>PIVOT, DISTRIBUTIONAL, BOTH</code></td>
+</tr>
+<tr>
+<td><code>Layer2Aggregator</code></td>
+<td><code>SUM, COUNT, MAX, MIN, AVG</code></td>
+</tr>
+<tr>
+<td><code>DistributionalMetric</code></td>
+<td><code>ENTROPY, HHI, DOMINANT_PROPORTION, MODE, COUNT</code></td>
+</tr>
+<tr>
+<td><code>Layer2OutputType</code></td>
+<td><code>NUMERIC, FLAG, CATEGORICAL, TEMPORAL</code></td>
+</tr>
+<tr>
+<td><code>TemporalOperator</code></td>
+<td><code>PROM_U, PROM_P, SUM_U, SUM_P, ULT_MES, PREV_MES, CREC, FREQ, MIN_U, MAX_U, REC, XM, MEDIA_ABS, RATIO</code></td>
+</tr>
+<tr>
+<td><code>TimeWindowDirection</code></td>
+<td><code>BACKWARD, FORWARD</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Acceptance criteria:</strong>
+- All enums importable from <code>featkit.enums</code>
+- Each value has a string representation matching its name
+- Full test coverage in <code>tests/test_fields.py</code> (import + value checks)</p>
+<hr />
+<h2 id="plan-02-abstractfield-idfield-timefield">Plan 02 — AbstractField + IDField + TimeField</h2>
+<p><strong>Module:</strong> <code>src/featkit/fields/base.py</code>, <code>id_field.py</code>, <code>time_field.py</code></p>
+<p><strong>Scope:</strong> Define the abstract base for all column descriptors and the two structurally simplest concrete fields.</p>
+<p><strong>Classes:</strong></p>
+<ul>
+<li><code>AbstractField</code> (ABC): <code>name: str</code>, abstract property <code>role: FieldRole</code></li>
+<li><code>IDField(AbstractField)</code>: <code>role = FieldRole.ID</code></li>
+<li><code>TimeField(AbstractField)</code>: <code>source_granularity</code>, <code>target_granularity</code>, derived property <code>truncation_required: bool</code></li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- <code>AbstractField</code> cannot be instantiated directly
+- <code>IDField</code> and <code>TimeField</code> are concrete and instantiable
+- <code>truncation_required</code> is <code>True</code> iff <code>source_granularity != target_granularity</code>
+- Tests in <code>tests/test_fields.py</code></p>
+<hr />
+<h2 id="plan-03-categoricalfield-measurementfield">Plan 03 — CategoricalField + MeasurementField</h2>
+<p><strong>Module:</strong> <code>src/featkit/fields/categorical_field.py</code>, <code>measurement_field.py</code></p>
+<p><strong>Depends on:</strong> Plan 01, Plan 02</p>
+<p><strong>Scope:</strong> The two fields that carry domain semantics: categorical fields drive the pivot/distributional split; measurement fields carry the type contract reference.</p>
+<p><strong>Classes:</strong></p>
+<ul>
+<li><code>CategoricalField(AbstractField)</code>: <code>treatment: CategoricalTreatment</code>, <code>distributional_metrics: list[DistributionalMetric]</code> (required when treatment includes <code>DISTRIBUTIONAL</code>), <code>allowed_values: list[str] | None = None</code> (explicit domain override; if <code>None</code>, domain is resolved at build time via the <code>PivotSpaceBuilder</code>'s <code>domain_resolver</code>)</li>
+<li><code>MeasurementField(AbstractField)</code>: <code>measurement_type: MeasurementType</code>, <code>contract: AbstractMeasurementTypeContract</code> (forward reference — filled in Plan 04)</li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- <code>CategoricalField</code> raises <code>ValueError</code> if <code>treatment</code> includes <code>DISTRIBUTIONAL</code> and <code>distributional_metrics</code> is empty
+- <code>MeasurementField</code> stores the contract reference without executing it
+- Tests in <code>tests/test_fields.py</code></p>
+<hr />
+<h2 id="plan-04-abstractmeasurementtypecontract-concrete-implementations-layer-1-layer-2-boundary">Plan 04 — AbstractMeasurementTypeContract + concrete implementations (Layer 1 → Layer 2 boundary)</h2>
+<p><strong>Module:</strong> <code>src/featkit/contracts/measurement/base.py</code>, <code>defaults.py</code></p>
+<p><strong>Depends on:</strong> Plan 01</p>
+<p><strong>Scope:</strong> The contract that governs which <code>Layer2Aggregator</code>s are semantically valid for each <code>MeasurementType</code>. This is the Layer 1 → Layer 2 type boundary.</p>
+<p><strong>Classes:</strong></p>
+<ul>
+<li><code>AbstractMeasurementTypeContract</code> (ABC): <code>measurement_type: MeasurementType</code>, abstract property <code>valid_layer2_aggregators: frozenset[Layer2Aggregator]</code></li>
+<li>Concrete contracts — one per <code>MeasurementType</code>:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Contract</th>
+<th>Valid aggregators</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MontoContract</code></td>
+<td><code>SUM, MAX, MIN, AVG</code></td>
+</tr>
+<tr>
+<td><code>CantidadContract</code></td>
+<td><code>SUM, COUNT</code></td>
+</tr>
+<tr>
+<td><code>TicketContract</code></td>
+<td><code>AVG</code></td>
+</tr>
+<tr>
+<td><code>FlagContract</code></td>
+<td><code>MAX</code></td>
+</tr>
+<tr>
+<td><code>FechaContract</code></td>
+<td><code>MAX, MIN</code></td>
+</tr>
+<tr>
+<td><code>BalanceContract</code></td>
+<td><code>MAX, MIN, AVG</code></td>
+</tr>
+<tr>
+<td><code>TimeDiffContract</code></td>
+<td><code>SUM, AVG, MAX, MIN</code></td>
+</tr>
+<tr>
+<td><code>EstadisticoContract</code></td>
+<td><code>SUM, AVG, MAX, MIN, COUNT</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Note:</strong> <code>CANTIDAD</code> represents a base count present in each source row (e.g., a <code>TRX_COUNT</code> column in the facts table). Event frequency across the observation window (how many periods contain non-zero activity, etc.) is a Layer 3 concept derived via temporal operators — it does not require a dedicated <code>MeasurementType</code>.</p>
+<p><strong>Acceptance criteria:</strong>
+- Each contract returns a frozen, non-empty set of aggregators
+- A convenience factory <code>get_default_contract(mt: MeasurementType) -&gt; AbstractMeasurementTypeContract</code> is provided
+- Tests in <code>tests/test_contracts.py</code></p>
+<hr />
+<h2 id="plan-05-abstractlayer2outputcontract-concrete-implementations-layer-2-layer-3-boundary">Plan 05 — AbstractLayer2OutputContract + concrete implementations (Layer 2 → Layer 3 boundary)</h2>
+<p><strong>Module:</strong> <code>src/featkit/contracts/output/base.py</code>, <code>defaults.py</code></p>
+<p><strong>Depends on:</strong> Plan 01</p>
+<p><strong>Scope:</strong> The contract that governs which <code>TemporalOperator</code>s are semantically valid for each <code>Layer2OutputType</code>. This is the Layer 2 → Layer 3 type boundary.</p>
+<p><strong>Classes:</strong></p>
+<ul>
+<li><code>AbstractLayer2OutputContract</code> (ABC): <code>output_type: Layer2OutputType</code>, abstract property <code>valid_temporal_operators: frozenset[TemporalOperator]</code></li>
+<li>Concrete contracts:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Contract</th>
+<th>Valid temporal operators</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NumericOutputContract</code></td>
+<td><code>PROM_U, PROM_P, SUM_U, SUM_P, CREC, MIN_U, MAX_U, ULT_MES, PREV_MES, FREQ, XM, MEDIA_ABS, RATIO</code></td>
+</tr>
+<tr>
+<td><code>FlagOutputContract</code></td>
+<td><code>ULT_MES, PREV_MES, FREQ, XM, REC</code></td>
+</tr>
+<tr>
+<td><code>CategoricalOutputContract</code></td>
+<td><code>ULT_MES, PREV_MES, REC</code></td>
+</tr>
+<tr>
+<td><code>TemporalOutputContract</code></td>
+<td><code>ULT_MES, PREV_MES, REC, MIN_U, MAX_U, CREC</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Acceptance criteria:</strong>
+- Each contract returns a frozen, non-empty set of operators
+- A convenience factory <code>get_default_output_contract(ot: Layer2OutputType) -&gt; AbstractLayer2OutputContract</code> is provided
+- Tests in <code>tests/test_contracts.py</code></p>
+<hr />
+<h2 id="plan-06-abstractlayer2column-pivotedcolumn-distributionalcolumn">Plan 06 — AbstractLayer2Column + PivotedColumn + DistributionalColumn</h2>
+<p><strong>Module:</strong> <code>src/featkit/layer2/base.py</code>, <code>pivoted.py</code>, <code>distributional.py</code></p>
+<p><strong>Depends on:</strong> Plan 01, Plan 03, Plan 04, Plan 05</p>
+<p><strong>Scope:</strong> The data model for all columns in the horizontal concept table (Layer 2 output). Both subclasses carry an <code>output_type</code> that bridges to Layer 3.</p>
+<p><strong>Classes:</strong></p>
+<ul>
+<li><code>AbstractLayer2Column</code> (ABC):</li>
+<li><code>source_measurement: MeasurementField</code></li>
+<li><code>layer2_aggregator: Layer2Aggregator</code></li>
+<li>abstract property <code>output_type: Layer2OutputType</code></li>
+<li>concrete property <code>output_contract: AbstractLayer2OutputContract</code> (derived from <code>output_type</code>)</li>
+<li>
+<p>abstract property <code>column_name: str</code></p>
+</li>
+<li>
+<p><code>PivotedColumn(AbstractLayer2Column)</code>:</p>
+</li>
+<li><code>categorical_combination: dict[CategoricalField, str | None]</code> — <code>None</code> = ∅ marginal</li>
+<li><code>output_type</code> derived from <code>source_measurement.measurement_type</code>: <code>FLAG</code> → <code>FLAG</code>; <code>FECHA</code> → <code>TEMPORAL</code>; all others → <code>NUMERIC</code></li>
+<li><code>column_name</code> derived as <code>{aggregator}__{measurement}__{catN_val}...</code> where categorical entries are sorted alphabetically by <code>field.name</code> — guarantees deterministic, collision-free names regardless of dict insertion order</li>
+<li>
+<p>Validates <code>layer2_aggregator ∈ source_measurement.contract.valid_layer2_aggregators</code> at construction</p>
+</li>
+<li>
+<p><code>DistributionalColumn(AbstractLayer2Column)</code>:</p>
+</li>
+<li><code>categorical: CategoricalField</code></li>
+<li><code>distributional_metric: DistributionalMetric</code></li>
+<li><code>output_type</code> derived from <code>distributional_metric</code>: MODE → <code>CATEGORICAL</code>; all others (COUNT, ENTROPY, HHI, DOMINANT_PROPORTION) → <code>NUMERIC</code></li>
+<li><code>column_name</code> derived as <code>{categorical}__{measurement}__{aggregator}__{metric}</code></li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- Invalid aggregator raises <code>ValueError</code> at construction (PivotedColumn)
+- <code>output_contract</code> is always consistent with <code>output_type</code>
+- Column name derivation is deterministic and collision-free for distinct inputs
+- Tests in <code>tests/test_layer2.py</code></p>
+<hr />
+<h2 id="plan-07-temporalfeature">Plan 07 — TemporalFeature</h2>
+<p><strong>Module:</strong> <code>src/featkit/layer3/temporal_feature.py</code></p>
+<p><strong>Depends on:</strong> Plan 01, Plan 05, Plan 06</p>
+<p><strong>Scope:</strong> The data model for a single Layer 3 output column. Validates operator compatibility at construction time.</p>
+<p><strong>Class:</strong></p>
+<ul>
+<li><code>TemporalFeature</code>:</li>
+<li><code>source: AbstractLayer2Column</code></li>
+<li><code>operator: TemporalOperator</code></li>
+<li><code>window_size: int | None</code> (required for windowed operators; <code>None</code> for point-in-time operators like <code>ULT_MES</code>, <code>REC</code>)</li>
+<li><code>direction: TimeWindowDirection</code></li>
+<li>derived property <code>column_name: str</code> — <code>{source.column_name}__{operator}__{direction}__{window_size}</code></li>
+<li>Validates <code>operator ∈ source.output_contract.valid_temporal_operators</code> at construction</li>
+<li>Validates <code>window_size</code> is provided for operators that require it</li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- Invalid operator raises <code>ValueError</code> at construction
+- Missing <code>window_size</code> for windowed operator raises <code>ValueError</code>
+- Column name is deterministic
+- Tests in <code>tests/test_layer3.py</code></p>
+<hr />
+<h2 id="plan-08-abstractdataset">Plan 08 — AbstractDataset</h2>
+<p><strong>Module:</strong> <code>src/featkit/dataset/base.py</code></p>
+<p><strong>Depends on:</strong> Plan 01, Plan 02, Plan 03</p>
+<p><strong>Scope:</strong> The schema descriptor for the input facts table. Pure metadata — no data access, no materialisation.</p>
+<p><strong>Classes:</strong></p>
+<ul>
+<li><code>AbstractDataset</code> (ABC):</li>
+<li><code>source_reference: str</code> — fully-qualified table name or SQL string</li>
+<li><code>fields: list[AbstractField]</code></li>
+<li>Derived properties (filter by <code>FieldRole</code>):<ul>
+<li><code>id_fields: list[IDField]</code></li>
+<li><code>time_field: TimeField</code> — raises <code>ValueError</code> if missing or multiple</li>
+<li><code>categorical_fields: list[CategoricalField]</code></li>
+<li><code>measurement_fields: list[MeasurementField]</code></li>
+</ul>
+</li>
+<li>
+<p><code>validate()</code> — checks that exactly one <code>TIME</code> field and at least one <code>ID</code> and one <code>MEASUREMENT</code> field exist</p>
+</li>
+<li>
+<p><code>SimpleDataset(AbstractDataset)</code>: concrete, no-subclass entry point. Constructor takes <code>source_reference: str</code> and <code>fields: list[AbstractField]</code> directly. Implements no abstract methods beyond what <code>AbstractDataset</code> already provides. Used in quickstart and tests.</p>
+</li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- <code>validate()</code> raises descriptive <code>ValueError</code> for each violation
+- Derived field properties always return correct subsets
+- <code>SimpleDataset</code> is instantiable with only <code>source_reference</code> and <code>fields</code>
+- Tests in <code>tests/test_fields.py</code></p>
+<hr />
+<h2 id="plan-09-pivotspacebuilder">Plan 09 — PivotSpaceBuilder</h2>
+<p><strong>Module:</strong> <code>src/featkit/builders/pivot_space.py</code></p>
+<p><strong>Depends on:</strong> Plan 06, Plan 08</p>
+<p><strong>Scope:</strong> Generates the full set of <code>PivotedColumn</code> objects from a dataset, including marginals (∅ combinations).</p>
+<p><strong>Class:</strong></p>
+<ul>
+<li><code>PivotSpaceBuilder</code>:</li>
+<li><code>dataset: AbstractDataset</code></li>
+<li><code>include_marginals: bool</code> — whether to include ∅ substitutions for each categorical</li>
+<li><code>aggregators_override: dict[MeasurementType, list[Layer2Aggregator]] | None</code></li>
+<li><code>domain_resolver: Callable[[CategoricalField], list[str]] | None</code> — invoked when <code>field.allowed_values is None</code>; a <strong>user-supplied callable</strong> that returns the distinct values for a categorical column. The framework performs no query execution and introduces no adapter or executor class — execution is entirely delegated to the caller (e.g. <code>lambda f: conn.execute(f"SELECT DISTINCT {f.name} FROM {dataset.source_reference}").fetchall()</code>)</li>
+<li><code>build() → list[PivotedColumn]</code>:<ol>
+<li>For each pivot-eligible categorical: resolve domain via <code>field.allowed_values</code> (static) when set, otherwise via <code>domain_resolver(field)</code> (dynamic); raise <code>ValueError</code> if both are <code>None</code></li>
+<li>Compute cartesian product of <code>(resolved_domain ∪ {None})</code> across all pivot-eligible categoricals</li>
+<li>For each combination × measurement × valid aggregator: create a <code>PivotedColumn</code></li>
+<li>Skip invalid aggregator/measurement combinations (contract-governed)</li>
+</ol>
+</li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- With 2 categoricals having 3 values each + marginals: generates <code>(3+1)² × measurements × agg</code> columns
+- No duplicates in output
+- Raises <code>ValueError</code> when <code>field.allowed_values</code> is <code>None</code> and no <code>domain_resolver</code> is provided
+- Tests in <code>tests/test_builders.py</code></p>
+<hr />
+<h2 id="plan-10-distributionalspacebuilder">Plan 10 — DistributionalSpaceBuilder</h2>
+<p><strong>Module:</strong> <code>src/featkit/builders/distributional_space.py</code></p>
+<p><strong>Depends on:</strong> Plan 06, Plan 08</p>
+<p><strong>Scope:</strong> Generates the full set of <code>DistributionalColumn</code> objects for all <code>DISTRIBUTIONAL</code>-treatment categorical fields.</p>
+<p><strong>Class:</strong></p>
+<ul>
+<li><code>DistributionalSpaceBuilder</code>:</li>
+<li><code>dataset: AbstractDataset</code></li>
+<li><code>value_measurements: list[MeasurementField] | None</code> — if <code>None</code>, use all measurement fields</li>
+<li><code>build() → list[DistributionalColumn]</code>:
+    For each (categorical with DISTRIBUTIONAL treatment) × (measurement) × (base_agg per contract) × (metric in categorical.distributional_metrics): create a <code>DistributionalColumn</code></li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- Only processes categoricals where <code>treatment ∈ {DISTRIBUTIONAL, BOTH}</code>
+- Tests in <code>tests/test_builders.py</code></p>
+<hr />
+<h2 id="plan-11-temporalspacebuilder">Plan 11 — TemporalSpaceBuilder</h2>
+<p><strong>Module:</strong> <code>src/featkit/builders/temporal_space.py</code></p>
+<p><strong>Depends on:</strong> Plan 05, Plan 06, Plan 07</p>
+<p><strong>Scope:</strong> Generates the full set of <code>TemporalFeature</code> objects from a list of Layer 2 columns.</p>
+<p><strong>Class:</strong></p>
+<ul>
+<li><code>TemporalSpaceBuilder</code>:</li>
+<li><code>layer2_columns: list[AbstractLayer2Column]</code></li>
+<li><code>time_windows: list[int]</code></li>
+<li><code>composed_windows: list[int] | None</code> — for <code>MEDIA_ABS</code> and <code>RATIO</code></li>
+<li><code>direction: TimeWindowDirection</code></li>
+<li><code>operators_override: dict[Layer2OutputType, list[TemporalOperator]] | None</code></li>
+<li><code>build() → list[TemporalFeature]</code>:
+    For each layer2 column × valid operator (from output contract) × window size: create a <code>TemporalFeature</code>. Point-in-time operators (<code>ULT_MES</code>, <code>PREV_MES</code>, <code>REC</code>) get <code>window_size=None</code>.</li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- Output set only contains contract-valid operator/column combinations
+- <code>MEDIA_ABS</code> and <code>RATIO</code> only generated when <code>composed_windows</code> is provided
+- Tests in <code>tests/test_builders.py</code></p>
+<hr />
+<h2 id="plan-12-featurestoreconfig-featurestorepipeline">Plan 12 — FeatureStoreConfig + FeatureStorePipeline</h2>
+<p><strong>Module:</strong> <code>src/featkit/config.py</code>, <code>pipeline.py</code></p>
+<p><strong>Depends on:</strong> Plans 01–11</p>
+<p><strong>Scope:</strong> Top-level configuration object and the pipeline orchestrator that ties builders together.</p>
+<p><strong>Classes:</strong></p>
+<ul>
+<li><code>FeatureStoreConfig</code>:</li>
+<li><code>dataset: AbstractDataset</code></li>
+<li><code>output_schema: str</code></li>
+<li><code>output_table_prefix: str</code></li>
+<li><code>time_windows: list[int]</code></li>
+<li><code>composed_windows: list[int] | None</code></li>
+<li><code>include_marginals: bool</code></li>
+<li><code>aggregators_override: dict[MeasurementType, list[Layer2Aggregator]] | None</code></li>
+<li>
+<p><code>operators_override: dict[Layer2OutputType, list[TemporalOperator]] | None</code></p>
+</li>
+<li>
+<p><code>FeatureStorePipeline</code>:</p>
+</li>
+<li><code>config: FeatureStoreConfig</code></li>
+<li><code>layer2a: list[PivotedColumn]</code> — populated by <code>build()</code></li>
+<li><code>layer2b: list[DistributionalColumn]</code> — populated by <code>build()</code></li>
+<li><code>layer3: list[TemporalFeature]</code> — populated by <code>build()</code></li>
+<li><code>build() → self</code> — calls the three builders in sequence</li>
+<li><code>run(generator: AbstractCodeGenerator) → FeatureStoreOutput</code></li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- <code>build()</code> is idempotent (calling twice gives same result)
+- <code>run()</code> delegates entirely to the generator
+- Tests in <code>tests/test_pipeline.py</code></p>
+<hr />
+<h2 id="plan-13-abstractcodegenerator-featurestoreoutput-dag">Plan 13 — AbstractCodeGenerator + FeatureStoreOutput + DAG</h2>
+<p><strong>Module:</strong> <code>src/featkit/generators/base.py</code>, <code>output.py</code></p>
+<p><strong>Depends on:</strong> Plan 12</p>
+<p><strong>Scope:</strong> The abstract code generator interface, the output container, and the DAG/Mermaid generation logic (engine-agnostic).</p>
+<p><strong>Classes:</strong></p>
+<ul>
+<li><code>DAGNode</code>: <code>step_name: str</code>, <code>depends_on: list[str]</code></li>
+<li><code>DAG</code>: <code>nodes: list[DAGNode]</code>, <code>to_json() → str</code></li>
+<li><code>SQLOutput</code>: <code>sql: str</code>, <code>dialect: str</code>, <code>save(path: str) → None</code></li>
+<li><code>PySparkOutput</code>: placeholder for PySpark lazy chain</li>
+<li><code>CodeOutput = SQLOutput | PySparkOutput</code></li>
+<li>
+<p><code>FeatureStoreOutput</code>: <code>code: CodeOutput</code>, <code>dag: DAG</code>, <code>mermaid: str</code>, <code>save(directory: str) → None</code></p>
+</li>
+<li>
+<p><code>AbstractCodeGenerator</code> (ABC):</p>
+</li>
+<li>Abstract: <code>build_mob_table</code>, <code>build_layer2a</code>, <code>build_layer2b</code>, <code>build_layer3</code>, <code>build_final_join</code> — each takes <code>pipeline: FeatureStorePipeline</code> and returns <code>CodeOutput</code></li>
+<li>Concrete: <code>build_dag(pipeline) → DAG</code></li>
+<li>Concrete: <code>build_mermaid(dag: DAG) → str</code></li>
+<li>Concrete: <code>generate(pipeline) → FeatureStoreOutput</code> — orchestrates all steps</li>
+</ul>
+<p><strong>DAG structure (fixed for all generators):</strong>
+<div class="highlight"><pre><span></span><code>facts_table → mob_table
+facts_table → layer2a_pivot
+facts_table → layer2b_distributional_ctes
+layer2a_pivot + layer2b_distributional_ctes → layer2_join
+layer2_join + mob_table → layer3_temporal
+layer2_join + layer3_temporal → final_output
+</code></pre></div></p>
+<p><strong>Acceptance criteria:</strong>
+- <code>build_dag</code> produces correct node/edge structure
+- <code>build_mermaid</code> produces valid Mermaid flowchart syntax
+- <code>FeatureStoreOutput.save()</code> writes: <code>script.sql</code> (when <code>code</code> is <code>SQLOutput</code>), <code>script.py</code> (when <code>code</code> is <code>PySparkOutput</code>), plus <code>dag.json</code> and <code>diagram.md</code> in both cases
+- Tests in <code>tests/test_generators/</code></p>
+<hr />
+<h2 id="plan-14-abstractsqlcodegenerator-snowflakesqlcodegenerator">Plan 14 — AbstractSQLCodeGenerator + SnowflakeSQLCodeGenerator</h2>
+<p><strong>Module:</strong> <code>src/featkit/generators/sql/base.py</code>, <code>snowflake.py</code></p>
+<p><strong>Depends on:</strong> Plan 13</p>
+<p><strong>Scope:</strong> SQL generation base class and first concrete SQL dialect. Uses SQLGlot for expression building and rendering.</p>
+<p><strong>Classes:</strong></p>
+<ul>
+<li><code>AbstractSQLCodeGenerator(AbstractCodeGenerator)</code> (ABC):</li>
+<li>Implements <code>build_mob_table</code>, <code>build_layer2a</code>, <code>build_layer2b</code>, <code>build_layer3</code>, <code>build_final_join</code> using SQLGlot expression trees</li>
+<li>Abstract: <code>dialect: str</code> — the SQLGlot dialect string</li>
+<li><code>render(expr) → str</code> — renders SQLGlot expression to <code>dialect</code></li>
+<li>
+<p>Layer 2B builds one CTE per categorical field, joined in a single query</p>
+</li>
+<li>
+<p><code>SnowflakeSQLCodeGenerator(AbstractSQLCodeGenerator)</code>:</p>
+</li>
+<li><code>dialect = "snowflake"</code></li>
+<li>Handles Snowflake-specific syntax: <code>QUALIFY</code>, <code>ARRAY_CONSTRUCT</code></li>
+<li>All distributional metrics (ENTROPY, HHI, DOMINANT_PROPORTION, MODE, COUNT) are expressed as pure SQL aggregate expressions within CTEs — no custom UDAFs or stored procedures</li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- Generated SQL is parseable by SQLGlot in the target dialect
+- MOB table uses <code>ROW_NUMBER() OVER (ORDER BY time_col)</code> cross-join pattern
+- Layer 2B produces one CTE per categorical, consolidated via <code>LEFT JOIN USING</code>
+- Tests in <code>tests/test_generators/test_sql_snowflake.py</code></p>
+<hr />
+<h2 id="plan-15-databrickssqlcodegenerator-sparksqlcodegenerator">Plan 15 — DatabricksSQLCodeGenerator + SparkSQLCodeGenerator</h2>
+<p><strong>Module:</strong> <code>src/featkit/generators/sql/databricks.py</code>, <code>spark_sql.py</code></p>
+<p><strong>Depends on:</strong> Plan 14</p>
+<p><strong>Scope:</strong> SQL generators for Databricks SQL and Spark SQL dialects. Inherits all logic from <code>AbstractSQLCodeGenerator</code>, overrides dialect and any syntax differences.</p>
+<p><strong>Classes:</strong></p>
+<ul>
+<li><code>DatabricksSQLCodeGenerator(AbstractSQLCodeGenerator)</code>: <code>dialect = "databricks"</code></li>
+<li><code>SparkSQLCodeGenerator(AbstractSQLCodeGenerator)</code>: <code>dialect = "sparksql"</code></li>
+</ul>
+<p><strong>Key dialect differences to handle:</strong>
+- Table creation syntax (<code>CREATE OR REPLACE</code> vs <code>CREATE TABLE IF NOT EXISTS</code>)
+- Temporary table syntax</p>
+<p><strong>Acceptance criteria:</strong>
+- Generated SQL is parseable by SQLGlot in each respective dialect
+- Tests in <code>tests/test_generators/test_sql_databricks.py</code></p>
+<hr />
+<h2 id="plan-16-pysparkcodegenerator">Plan 16 — PySparkCodeGenerator</h2>
+<p><strong>Module:</strong> <code>src/featkit/generators/pyspark/databricks.py</code></p>
+<p><strong>Depends on:</strong> Plan 13</p>
+<p><strong>Scope:</strong> PySpark-native code generator that produces lazy DataFrame transformations instead of SQL strings. All steps use the PySpark DataFrame API; final output is a <code>PySparkOutput</code> containing a callable that, when invoked with a <code>SparkSession</code>, executes the full pipeline.</p>
+<p><strong>Class:</strong></p>
+<ul>
+<li><code>PySparkCodeGenerator(AbstractCodeGenerator)</code>:</li>
+<li><code>build_mob_table</code> → cross-join via <code>.crossJoin()</code> + <code>row_number()</code> window</li>
+<li><code>build_layer2a</code> → <code>.groupBy()</code> + <code>F.when()</code> CASE WHEN pivot</li>
+<li><code>build_layer2b</code> → per-categorical <code>.groupBy()</code> + pure aggregate expressions (entropy, HHI, dominant proportion, mode, count via standard PySpark functions), then join</li>
+<li><code>build_layer3</code> → MOB join + <code>.agg()</code> with windowed CASE WHEN</li>
+<li><code>build_final_join</code> → <code>left_join</code> of Layer 2 and Layer 3 DataFrames</li>
+<li>All steps are lazy — no <code>.collect()</code> or <code>.show()</code> calls</li>
+</ul>
+<p><strong>Acceptance criteria:</strong>
+- All transformations are lazy until the returned callable is invoked
+- Tests in <code>tests/test_generators/test_pyspark.py</code> (may use mocked SparkSession)</p>
+<hr />
+<h2 id="plan-17-integration-tests">Plan 17 — Integration tests</h2>
+<p><strong>Module:</strong> <code>tests/</code> (cross-cutting)</p>
+<p><strong>Depends on:</strong> Plans 01–16</p>
+<p><strong>Scope:</strong> End-to-end tests that run a complete pipeline from <code>AbstractDataset</code> definition through to generated SQL or PySpark plan, validating structural correctness of the output.</p>
+<p><strong>Test scenarios:</strong></p>
+<ol>
+<li><strong>Snowflake SQL — pivot only</strong>: dataset with 2 categoricals (PIVOT treatment), 2 measurements, windows [3, 6], no marginals → validate column count and SQL syntax</li>
+<li><strong>Snowflake SQL — distributional only</strong>: dataset with 2 categoricals (DISTRIBUTIONAL), 2 measurements, ENTROPY + HHI UDAFs → validate CTE structure</li>
+<li><strong>Snowflake SQL — full pipeline</strong>: PIVOT + DISTRIBUTIONAL categoricals, composed windows, marginals enabled → validate complete output file</li>
+<li><strong>Databricks SQL — full pipeline</strong>: same as (3) with Databricks dialect</li>
+<li><strong>PySpark — full pipeline</strong>: same dataset with <code>PySparkCodeGenerator</code> → validate DataFrame lineage</li>
+<li><strong>DAG correctness</strong>: all scenarios → validate node count and edge structure in DAG</li>
+<li><strong>Mermaid output</strong>: validate generated Mermaid string is syntactically valid</li>
+</ol>
+<p><strong>Acceptance criteria:</strong>
+- All scenarios pass without errors
+- SQL outputs are parseable by SQLGlot
+- Column counts match expected pivot space size for given inputs</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "search.suggest"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
