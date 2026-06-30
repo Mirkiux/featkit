@@ -66,7 +66,7 @@ class FeatureStorePipeline:
             verbose=cfg.verbose,
         ).build()
         self.layer2c = (
-            RatioSpaceBuilder(self.layer2a, verbose=cfg.verbose).build()
+            RatioSpaceBuilder(self.layer2a, ratio_mode=cfg.ratio_mode, verbose=cfg.verbose).build()
             if cfg.include_ratios and cfg.include_marginals
             else []
         )

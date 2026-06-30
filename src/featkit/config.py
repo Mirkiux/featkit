@@ -6,7 +6,13 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from featkit.dataset.base import AbstractDataset
-from featkit.enums import Layer2Aggregator, Layer2OutputType, MeasurementType, TemporalOperator
+from featkit.enums import (
+    Layer2Aggregator,
+    Layer2OutputType,
+    MeasurementType,
+    RatioMode,
+    TemporalOperator,
+)
 
 if TYPE_CHECKING:
     from featkit.execution.adapters.base import DataSourceAdapter
@@ -32,6 +38,13 @@ class FeatureStoreConfig:
             combination over each of its proper marginal projections.  Has no
             effect when ``include_marginals`` is ``False`` (no marginal
             denominators exist).
+        ratio_mode: Controls which denominators are considered when
+            ``include_ratios`` is ``True``.  ``RatioMode.ALL_PROJECTIONS``
+            (default) pairs each numerator with every valid proper marginal
+            projection.  ``RatioMode.GLOBAL_TOTAL`` restricts denominators to
+            the single fully-marginalised column (all categorical fields set to
+            ∅), producing one ratio per numerator representing its share of the
+            grand total.
         aggregators_override: Per-measurement-type override for Layer 2
             aggregators. Only contract-valid aggregators are used.
         operators_override: Per-output-type override for temporal operators.
@@ -53,6 +66,7 @@ class FeatureStoreConfig:
     composed_windows: list[int] | None = None
     include_marginals: bool = True
     include_ratios: bool = True
+    ratio_mode: RatioMode = RatioMode.ALL_PROJECTIONS
     aggregators_override: dict[MeasurementType, list[Layer2Aggregator]] | None = None
     operators_override: dict[Layer2OutputType, list[TemporalOperator]] | None = field(default=None)
     adapter: DataSourceAdapter | None = None

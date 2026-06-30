@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from featkit.enums import RatioMode
 from featkit.layer2.pivoted import PivotedColumn
 from featkit.layer2.ratio import RatioPivotedColumn
 
@@ -31,6 +32,11 @@ class RatioSpaceBuilder:
     Args:
         pivot_columns: The full set of Layer 2A pivot columns, typically
             ``FeatureStorePipeline.layer2a``.
+        ratio_mode: Controls which columns are eligible as denominators.
+            ``RatioMode.ALL_PROJECTIONS`` (default) considers every column
+            with at least one ∅ (``None``) field.  ``RatioMode.GLOBAL_TOTAL``
+            restricts to columns where *all* fields are ∅ — the grand-total
+            column — producing one ratio per numerator.
         verbose: When ``True``, emits ``DEBUG``-level log messages listing
             each generated ratio column name.
     """
@@ -38,9 +44,11 @@ class RatioSpaceBuilder:
     def __init__(
         self,
         pivot_columns: list[PivotedColumn],
+        ratio_mode: RatioMode = RatioMode.ALL_PROJECTIONS,
         verbose: bool = False,
     ) -> None:
         self.pivot_columns = pivot_columns
+        self.ratio_mode = ratio_mode
         self.verbose = verbose
 
     def build(self) -> list[RatioPivotedColumn]:
@@ -56,12 +64,22 @@ class RatioSpaceBuilder:
             if c.categorical_combination
             and any(v is not None for v in c.categorical_combination.values())
         ]
-        # Potential denominators: any column with at least one None categorical value
-        denominators = [
-            c
-            for c in self.pivot_columns
-            if any(v is None for v in c.categorical_combination.values())
-        ]
+        # Potential denominators: depends on mode.
+        # ALL_PROJECTIONS: any column with at least one ∅ field (partial or full marginal).
+        # GLOBAL_TOTAL: only the column where every field is ∅ (grand total).
+        if self.ratio_mode == RatioMode.GLOBAL_TOTAL:
+            denominators = [
+                c
+                for c in self.pivot_columns
+                if c.categorical_combination
+                and all(v is None for v in c.categorical_combination.values())
+            ]
+        else:
+            denominators = [
+                c
+                for c in self.pivot_columns
+                if any(v is None for v in c.categorical_combination.values())
+            ]
 
         results: list[RatioPivotedColumn] = []
         seen: set[str] = set()
