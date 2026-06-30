@@ -472,17 +472,27 @@ class TestPipelineRatioModeIntegration:
             assert all(v is None for v in denom_vals)
 
     def test_global_total_fewer_ratios_than_all_projections(self):
-        base = dict(
-            dataset=_two_cat_dataset(),
-            output_schema="s",
-            output_table_prefix="p_",
-            time_windows=[3],
-            include_marginals=True,
-            include_ratios=True,
-        )
-        all_proj = FeatureStorePipeline(FeatureStoreConfig(**base)).build()
+        ds = _two_cat_dataset()
+        all_proj = FeatureStorePipeline(
+            FeatureStoreConfig(
+                dataset=ds,
+                output_schema="s",
+                output_table_prefix="p_",
+                time_windows=[3],
+                include_marginals=True,
+                include_ratios=True,
+            )
+        ).build()
         global_only = FeatureStorePipeline(
-            FeatureStoreConfig(**base, ratio_mode=RatioMode.GLOBAL_TOTAL)
+            FeatureStoreConfig(
+                dataset=ds,
+                output_schema="s",
+                output_table_prefix="p_",
+                time_windows=[3],
+                include_marginals=True,
+                include_ratios=True,
+                ratio_mode=RatioMode.GLOBAL_TOTAL,
+            )
         ).build()
         assert len(global_only.layer2c) < len(all_proj.layer2c)
 
