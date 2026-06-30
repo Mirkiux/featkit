@@ -146,16 +146,23 @@ where `NUMERATOR` and `DENOMINATOR` are full Layer 2A pivot feature names. The d
 
 The underlying value is `numerator / NULLIF(denominator, 0)` computed per entity per period.
 
+Enabled by setting `include_ratios=True` (requires `include_marginals=True`). The `ratio_mode` parameter controls which denominators are paired with each numerator:
+
+| `ratio_mode` | Denominators considered | Ratios produced per numerator |
+|---|---|---|
+| `RatioMode.ALL_PROJECTIONS` *(default)* | Every proper marginal projection (partial or fully marginalised) | One per valid denominator |
+| `RatioMode.GLOBAL_TOTAL` | Only the fully-marginalised column (all fields ∅) | Exactly one — the share of the grand total |
+
 ```
-# Numerator: DIGITAL channel + RETAIL sector
-# Denominator: RETAIL sector only (CANAL marginalized → share of DIGITAL within RETAIL)
-SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO__SECTOR_RETAIL
+# With RatioMode.ALL_PROJECTIONS (default):
+# Numerator: DIGITAL channel + RETAIL sector → three denominators
+SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO__SECTOR_RETAIL   # share within RETAIL
+SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO__CANAL_DIGITAL   # share within DIGITAL
+SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO                  # share of total
 
-# Denominator: DIGITAL channel only (SECTOR marginalized → share of RETAIL within DIGITAL)
-SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO__CANAL_DIGITAL
-
-# Denominator: global total (both marginalized → share of DIGITAL/RETAIL in total portfolio)
-SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO
+# With RatioMode.GLOBAL_TOTAL:
+# Same numerator → only the grand-total denominator
+SUM__MTO__CANAL_DIGITAL__SECTOR_RETAIL__over__SUM__MTO                  # share of total only
 ```
 
 ---

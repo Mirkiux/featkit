@@ -12,6 +12,7 @@ from featkit.enums import (
     Layer2Aggregator,
     Layer2OutputType,
     MeasurementType,
+    RatioMode,
     TimeGranularity,
 )
 from featkit.fields.categorical_field import CategoricalField
@@ -387,3 +388,121 @@ class TestSQLRatioGeneration:
         sql = DatabricksSQLCodeGenerator().build_final_join(pipeline).sql
         for col in pipeline.layer2c:
             assert col.column_name in sql
+
+
+# ---------------------------------------------------------------------------
+# RatioMode.GLOBAL_TOTAL
+# ---------------------------------------------------------------------------
+
+
+class TestRatioModeGlobalTotal:
+    """RatioMode.GLOBAL_TOTAL restricts denominators to the all-None column only."""
+
+    def test_global_total_produces_fewer_ratios_than_all_projections(
+        self, full_combo, marginal_channel, marginal_region, marginal_all
+    ):
+        cols = [full_combo, marginal_channel, marginal_region, marginal_all]
+        all_proj = RatioSpaceBuilder(cols, ratio_mode=RatioMode.ALL_PROJECTIONS).build()
+        global_only = RatioSpaceBuilder(cols, ratio_mode=RatioMode.GLOBAL_TOTAL).build()
+        assert len(global_only) < len(all_proj)
+
+    def test_global_total_denominators_are_all_none(
+        self, full_combo, marginal_channel, marginal_region, marginal_all
+    ):
+        cols = [full_combo, marginal_channel, marginal_region, marginal_all]
+        ratios = RatioSpaceBuilder(cols, ratio_mode=RatioMode.GLOBAL_TOTAL).build()
+        for ratio in ratios:
+            denom_vals = ratio.denominator.categorical_combination.values()
+            assert all(v is None for v in denom_vals), (
+                f"Expected all-None denominator, got {ratio.denominator.column_name}"
+            )
+
+    def test_global_total_full_combo_produces_one_ratio(
+        self, full_combo, marginal_channel, marginal_region, marginal_all
+    ):
+        # full_combo (ch=retail, r=north) should only pair with marginal_all (ch=None, r=None)
+        cols = [full_combo, marginal_channel, marginal_region, marginal_all]
+        ratios = RatioSpaceBuilder(cols, ratio_mode=RatioMode.GLOBAL_TOTAL).build()
+        full_combo_ratios = [r for r in ratios if r.numerator is full_combo]
+        assert len(full_combo_ratios) == 1
+        assert full_combo_ratios[0].denominator is marginal_all
+
+    def test_global_total_partial_marginals_also_pair_with_global(
+        self, full_combo, marginal_channel, marginal_region, marginal_all
+    ):
+        # marginal_channel (ch=None, r=north) should also pair with marginal_all
+        cols = [full_combo, marginal_channel, marginal_region, marginal_all]
+        ratios = RatioSpaceBuilder(cols, ratio_mode=RatioMode.GLOBAL_TOTAL).build()
+        partial_ratios = [r for r in ratios if r.numerator is marginal_channel]
+        assert len(partial_ratios) == 1
+        assert partial_ratios[0].denominator is marginal_all
+
+    def test_global_total_no_global_marginal_returns_empty(
+        self, full_combo, marginal_channel, marginal_region
+    ):
+        # Without the all-None column there is no valid denominator
+        cols = [full_combo, marginal_channel, marginal_region]
+        ratios = RatioSpaceBuilder(cols, ratio_mode=RatioMode.GLOBAL_TOTAL).build()
+        assert ratios == []
+
+    def test_global_total_default_mode_is_all_projections(
+        self, full_combo, marginal_channel, marginal_region, marginal_all
+    ):
+        cols = [full_combo, marginal_channel, marginal_region, marginal_all]
+        default = RatioSpaceBuilder(cols).build()
+        explicit = RatioSpaceBuilder(cols, ratio_mode=RatioMode.ALL_PROJECTIONS).build()
+        assert [r.column_name for r in default] == [r.column_name for r in explicit]
+
+
+class TestPipelineRatioModeIntegration:
+    def test_global_total_via_config(self):
+        cfg = FeatureStoreConfig(
+            dataset=_two_cat_dataset(),
+            output_schema="s",
+            output_table_prefix="p_",
+            time_windows=[3],
+            include_marginals=True,
+            include_ratios=True,
+            ratio_mode=RatioMode.GLOBAL_TOTAL,
+        )
+        pipeline = FeatureStorePipeline(cfg).build()
+        assert len(pipeline.layer2c) > 0
+        for col in pipeline.layer2c:
+            denom_vals = col.denominator.categorical_combination.values()
+            assert all(v is None for v in denom_vals)
+
+    def test_global_total_fewer_ratios_than_all_projections(self):
+        ds = _two_cat_dataset()
+        all_proj = FeatureStorePipeline(
+            FeatureStoreConfig(
+                dataset=ds,
+                output_schema="s",
+                output_table_prefix="p_",
+                time_windows=[3],
+                include_marginals=True,
+                include_ratios=True,
+            )
+        ).build()
+        global_only = FeatureStorePipeline(
+            FeatureStoreConfig(
+                dataset=ds,
+                output_schema="s",
+                output_table_prefix="p_",
+                time_windows=[3],
+                include_marginals=True,
+                include_ratios=True,
+                ratio_mode=RatioMode.GLOBAL_TOTAL,
+            )
+        ).build()
+        assert len(global_only.layer2c) < len(all_proj.layer2c)
+
+    def test_default_ratio_mode_is_all_projections(self):
+        cfg = FeatureStoreConfig(
+            dataset=_two_cat_dataset(),
+            output_schema="s",
+            output_table_prefix="p_",
+            time_windows=[3],
+            include_marginals=True,
+            include_ratios=True,
+        )
+        assert cfg.ratio_mode == RatioMode.ALL_PROJECTIONS

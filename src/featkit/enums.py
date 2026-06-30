@@ -108,3 +108,19 @@ class TimeWindowDirection(Enum):
 
     BACKWARD = "BACKWARD"
     FORWARD = "FORWARD"
+
+
+class RatioMode(Enum):
+    """Controls which denominators are paired with each numerator in Layer 2C.
+
+    ``ALL_PROJECTIONS`` (default): every proper marginal projection of the
+    numerator is used as a denominator — partial marginals (some fields set to
+    ∅) as well as the global total (all fields ∅).
+
+    ``GLOBAL_TOTAL``: only the fully-marginalised column (all categorical fields
+    set to ∅) is used as a denominator, producing a single ratio per numerator
+    that represents its share of the grand total.
+    """
+
+    ALL_PROJECTIONS = "ALL_PROJECTIONS"
+    GLOBAL_TOTAL = "GLOBAL_TOTAL"
