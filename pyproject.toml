@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "featkit"
-version = "0.4.2"
+version = "0.4.3"
 description = "featkit — automated feature store generation from relational facts tables"
 readme = "README.md"
 license = { file = "LICENSE" }
